@@ -9,6 +9,7 @@ import logging
 """
 
 # Set up Module Logging
+# TODO:  Read this https://docs.python.org/2/howto/logging-cookbook.html
 L = logging.getLogger(__name__)
 L.setLevel(logging.DEBUG)
 
@@ -87,8 +88,5 @@ if __name__ == '__main__':
 
         # TODO: Figure out what to do
    
-    print vfail.Build
-    #print args
-    #V=readVagabond()
-    #print V.Build
+    print V.Build
         
