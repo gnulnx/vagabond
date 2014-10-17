@@ -8,6 +8,15 @@ import logging
     This is the vagabond command line utility
 """
 
+# Set up Module Logging
+L = logging.getLogger(__name__)
+L.setLevel(logging.DEBUG)
+
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+
+L.addHandler(ch)
+
 Build = {
     'BaseBox':'addgene_base'
 }
@@ -25,11 +34,11 @@ def init(args):
             # Check for Vagabond file to confirm it is a vagabond project
             _file = os.path.join(args.name, "Vagabond.py")
             if os.path.isfile(_file):
-                print "There is already a vagabond project named %s, please choose another name"%args.name
-                print "If you would like to force a reinitialize then pass --force"
+                L.error("There is already a vagabond project named %s, please choose another name"%args.name)
+                L.error("If you would like to force a reinitialize then pass --force")
                 sys.exit(0)
             else:
-                print "There is already a directory named %s"%args.name
+                l.error("There is already a directory named %s"%args.name)
                 sys.exit(0)
         else:        
             raise
@@ -49,16 +58,9 @@ def getArgs():
     init_parser.add_argument('-f', '--force', action="store_true", help="Overwrite existing Vagabond.py file")
 
     # Neither of these are current used       
-    destroy_parser = subparser.add_parser('destroy', help="Destroy the virtual machine")
-    destroy_parser.add_argument('-f', '--force', action="store_true", help="Destroy without prompting") 
+    destroy_parser = subparser.add_parser('up', help="Bring the machine up")
     
-    args = parser.parse_args()
-    if args.subparser_name == 'init':
-        init(args)
-    print args.__dict__, type(args)
-    print "init_parser: ", init_parser
-    raise Exception(args)
-    return args
+    return parser.parse_args()
 
 
 def readVagabond():
@@ -72,10 +74,21 @@ def readVagabond():
     sys.path.insert(0, os.getcwd())
     import Vagabond
 
+    #TODO Need to do a verify/check on the imported Vagabond file.
+
     return Vagabond
 if __name__ == '__main__':
     args = getArgs()
-    print args
-    V=readVagabond()
-    print V.Build
+    if args.subparser_name == 'init':
+        init(args)
+    elif args.subparser_name == 'up':
+        # Read the Vagrant file in the current directory
+        V = readVagabond()
+
+        # TODO: Figure out what to do
+   
+    print vfail.Build
+    #print args
+    #V=readVagabond()
+    #print V.Build
         
