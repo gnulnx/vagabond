@@ -4,6 +4,9 @@ import sys
 import argparse
 import errno
 import logging
+from django.template import Context, Template
+from django.conf import settings
+settings.configure()
 """
     This is the vagabond command line utility
 """
@@ -28,26 +31,29 @@ def init(args):
         1)  Create a direction (args.name)
         2)  Use UPDATE_ME template to create initial Vagabond.py file
     """
+    # The path to create the Vagabond.py file
+    vfile = os.path.join(args.name, "Vagabond.py")
     try:
         os.mkdir(args.name)
     except OSError as e:
         if errno.errorcode[e.errno] == 'EEXIST': #File Exists:  https://docs.python.org/2/library/errno.html
             # Check for Vagabond file to confirm it is a vagabond project
-            _file = os.path.join(args.name, "Vagabond.py")
-            if os.path.isfile(_file):
+            if os.path.isfile(vfile):
                 L.error("There is already a vagabond project named %s, please choose another name"%args.name)
                 L.error("If you would like to force a reinitialize then pass --force")
                 sys.exit(0)
             else:
-                l.error("There is already a directory named %s"%args.name)
+                L.error("There is already a directory named %s"%args.name)
                 sys.exit(0)
         else:        
             raise
   
     # Now we need to use a templating system to copy our initial Vagabond.py file into the project directory 
-    
-            
-     
+    t=Template(open('templates/Vagabond.py', 'r').read())
+    c = Context({})
+    with open(vfile, 'w') as f:
+        f.write(t.render(c))
+        
 
 def getArgs():
     parser = argparse.ArgumentParser(description="Build and Manage a VirtualBox machine using python")
@@ -87,6 +93,5 @@ if __name__ == '__main__':
         V = readVagabond()
 
         # TODO: Figure out what to do
-   
-    print V.Build
+        print V.Build
         
