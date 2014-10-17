@@ -1,0 +1,81 @@
+#!/usr/bin/env python
+import os
+import sys
+import argparse
+import errno
+import logging
+"""
+    This is the vagabond command line utility
+"""
+
+Build = {
+    'BaseBox':'addgene_base'
+}
+
+def init(args):
+    """
+        Initialize a project by:
+        1)  Create a direction (args.name)
+        2)  Use UPDATE_ME template to create initial Vagabond.py file
+    """
+    try:
+        os.mkdir(args.name)
+    except OSError as e:
+        if errno.errorcode[e.errno] == 'EEXIST': #File Exists:  https://docs.python.org/2/library/errno.html
+            # Check for Vagabond file to confirm it is a vagabond project
+            _file = os.path.join(args.name, "Vagabond.py")
+            if os.path.isfile(_file):
+                print "There is already a vagabond project named %s, please choose another name"%args.name
+                print "If you would like to force a reinitialize then pass --force"
+                sys.exit(0)
+            else:
+                print "There is already a directory named %s"%args.name
+                sys.exit(0)
+        else:        
+            raise
+  
+    # Now we need to use a templating system to copy our initial Vagabond.py file into the project directory 
+    
+            
+     
+
+def getArgs():
+    parser = argparse.ArgumentParser(description="Build and Manage a VirtualBox machine using python")
+    subparser = parser.add_subparsers(help="Sub processor help", dest="subparser_name")
+
+    # Need to implement these
+    init_parser = subparser.add_parser('init', help="Start a Vagabond Project")
+    init_parser.add_argument('name', help="The name of the project")
+    init_parser.add_argument('-f', '--force', action="store_true", help="Overwrite existing Vagabond.py file")
+
+    # Neither of these are current used       
+    destroy_parser = subparser.add_parser('destroy', help="Destroy the virtual machine")
+    destroy_parser.add_argument('-f', '--force', action="store_true", help="Destroy without prompting") 
+    
+    args = parser.parse_args()
+    if args.subparser_name == 'init':
+        init(args)
+    print args.__dict__, type(args)
+    print "init_parser: ", init_parser
+    raise Exception(args)
+    return args
+
+
+def readVagabond():
+    # Check for Vagabond file in local directory
+    vfile = os.path.join(os.getcwd(), "Vagabond.py")
+    if not os.path.isfile(vfile):
+        raise IOError("You must have a Vagabond file in your current directory")
+
+    # Add current directory to sys path...
+    # so that when we load the Vagabond module it loads the users module
+    sys.path.insert(0, os.getcwd())
+    import Vagabond
+
+    return Vagabond
+if __name__ == '__main__':
+    args = getArgs()
+    print args
+    V=readVagabond()
+    print V.Build
+        
