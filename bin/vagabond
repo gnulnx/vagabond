@@ -39,31 +39,6 @@ def getArgs():
     list_parser.add_argument('--ostypes', action="store_true", help="Print a list of valid ostypes and exit")
     return parser.parse_args()
 
-def up(V):
-    """
-        Creating the VM from an ISO image
-        http://www.perkin.org.uk/posts/create-virtualbox-vm-from-the-command-line.html
-    """
-    # Check for Vagabond.py file
-    _file = os.path.join(os.getcwd(), "Vagabond.py")
-    if not os.path.isfile(_file):
-        L.error("No Vagabond.py file found.  Is this is this a vagabond project?")
-        sys.exit(0)
-       
-    config = V.config
-    hostname = config.get('hostname', 'vagabond')
-  
-    count = 0
-    for media, value in config['media'].items():    
-        if value:
-            media_type = media
-            media_val = value
-            count = count + 1
-            
-    if count > 1:
-        L.info("You may only define one media type in %s"%config['media'].keys())
-        sys.exit(0)
-    
     
 def init(args):
     """
