@@ -103,7 +103,7 @@ def init(args):
     #)
     #t=Template(open('%s/Vagabond.py'%template_dir, 'r').read())
     #c = Context({'version':API_VERSION})
-    from templates import VagabondTemplate
+    from vagabond.templates import VagabondTemplate
     VagabondTemplate.render({'version':API_VERSION})
     with open(vfile, 'w') as f:
         f.write( VagabondTemplate.render({'version':API_VERSION}) )

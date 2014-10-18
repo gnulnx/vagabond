@@ -65,8 +65,6 @@ for dirpath, dirnames, filenames in os.walk("vagabond"):
 with open('README.rst') as file:
     long_description = file.read()
 
-
-
 setup(
     name='vagabond',
     version='0.0.1',
@@ -78,12 +76,12 @@ setup(
     license='MIT',
     author='John Furr',
     author_email='john.furr@gmail.com',
-    py_modules=['bin', 'vagabond', 'templates'],
+    py_modules=['bin', 'vagabond', 'vagabond/templates'],
     scripts=['bin/vagabond'],
     include_package_data=True,
-    packages=['bin', 'vagabond', 'templates'],
-    #packages=find_packages(),
-    #package_data=package_data,
+    #packages=['bin', 'vagabond'],
+    packages=find_packages(),
+    package_data=package_data,
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
