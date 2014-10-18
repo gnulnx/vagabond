@@ -29,6 +29,11 @@ class VBoxManageError(ValueError):
     """
         A generic error for VBoxManager errors
     """
+    pass
+    #def __init__(self, msg):
+    #    self.msg = msg
+    #def __str__(self):
+    #    return repr(self.msg)
 
 class VM(object):
     def __init__(self, options, *args, **kwargs):
@@ -57,36 +62,48 @@ class VM(object):
         if media_type == 'iso':
             self.iso_up()
     
+    def _check_vbox_errors(self, err_log, args=None):
+        """
+            Check for errors and raise VBoxManageError
+        """
+        errors = []
+
+        if not os.path.isfile(err_log):
+            return errors
+
+        with open(err_log, 'r') as f:
+            tmp_error = f.readlines()
+            
+        for line in tmp_error:
+            if "VBoxManage: error: " in line:
+                errors.append(line)
+
+        if errors:  
+            os.unlink(err_log)
+            # Log the command that failed
+            L.error(" ".join(args))
+            raise VBoxManageError(errors)
+
+        return errors
       
     def vbox(self, *args):
+        """
+            Pass in a list of command/args to call VBoxManage.  We use subprocess to
+            write sterr to a file. On subprocess.CalledProcessError we read in the error
+            file and raise a VBoxManageError with the contents of the file as the message
+        """
         err_log=".vagabond.error.log"
         try:
             L.info(" ".join(args))
             with open(err_log, 'w') as f:
-                out = subprocess.check_output(args, stderr=f)
+                subprocess.check_output(args, stderr=f)
+            
+            # sometimes subprocess exits cleanly, but VBoxManage still threw an error...
+            errors = self._check_vbox_errors(err_log, args)
         except subprocess.CalledProcessError as e:
-            """
-                The VBoxManage error was written to .error.log
-                We read it in and give the user feedback
-            """
             # Log an error containing the failed command.
-            L.error(" ".join(args))
+            errors = self._check_vbox_errors(err_log, args)
 
-            with open(err_log, 'r') as f:
-                lines = f.readlines()
-
-            for l in lines:
-                if "Machine settings file" in l  \
-                and "already exists" in l:
-                    L.error(str(lines))
-                    L.error(l)
-                    L.error("Please try removing the box")
-
-            # If you made it here raise a VBoxManageError
-            raise VBoxManageError(unicode(e))
-
-        # remove the temp logfile
-        os.unlink(err_log)
  
     def iso_up(self):
         """
@@ -95,10 +112,23 @@ class VM(object):
         """
         VM="ubuntu-64bit"
         # Create the Harddrive
-        self.vbox('VBoxManage', 'createhd','--filename', '%s.vdi'%VM,'--size', '32768',)
+        try:
+            self.vbox('VBoxManage', 'createhd','--filename', '%s.vdi'%VM,'--size', '32768',)
+        except VBoxManageError as e:
+            if "Failed to create hard disk" in str(e):
+                L.error(str(e))
+                sys.exit(0)
+            #raise VBoxManageError(str(e))
 
         # Create the Virtual Machines
-        self.vbox('VBoxManage', 'createvm','--name', VM, '--ostype', 'Ubuntu_64','--register')
+        try:
+            self.vbox('VBoxManage', 'createvm','--name', VM, '--ostype', 'Ubuntu_64','--register')
+        except VBoxManageError as e:
+            if "Machine settings file" in str(e) and "already exists" in str(e):
+                L.error(str(e))
+                sys.exit(0)
+                #raise Exception(lines)
+                
         print "after vbox call"
         raw_input()
 
