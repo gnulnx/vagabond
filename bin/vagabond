@@ -94,20 +94,10 @@ def init(args):
             raise
   
     # Now we need to use a templating system to copy our initial Vagabond.py file into the project directory 
-    # TODO Make sure this works when installed as a python package
-    #template_dir = os.path.normpath(
-    #    os.path.join(
-    #        os.path.dirname(os.path.abspath(__file__)),
-    #        "../vagabond/templates"
-    #    )
-    #)
-    #t=Template(open('%s/Vagabond.py'%template_dir, 'r').read())
-    #c = Context({'version':API_VERSION})
     from vagabond.templates import VagabondTemplate
     VagabondTemplate.render({'version':API_VERSION})
     with open(vfile, 'w') as f:
         f.write( VagabondTemplate.render({'version':API_VERSION}) )
-        #f.write(t.render(c))
         
 
 def readVagabond():
@@ -119,6 +109,7 @@ def readVagabond():
     # Add current directory to sys path...
     # so that when we load the Vagabond module it loads the users module
     sys.path.insert(0, os.getcwd())
+    import Vagabond
 
     #TODO Need to do a verify/check on the imported Vagabond file.
 
