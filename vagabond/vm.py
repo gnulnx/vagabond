@@ -104,33 +104,53 @@ class VM(object):
             # Log an error containing the failed command.
             errors = self._check_vbox_errors(err_log, args)
 
+    @staticmethod
+    def show_valid_os_types():
+        cmd = "VBoxManage list -l ostypes".split()
+        out = subprocess.check_output(cmd)
+        valid_os = []
+        for line in out.split("\n"):
+            if "ID:" in line and "Family" not in line:
+                os = line.split(":")[1].strip()
+                valid_os.append(os)
+                print os
+        return valid_os
  
     def iso_up(self):
         """
             Creating the VM from an ISO image
             http://www.perkin.org.uk/posts/create-virtualbox-vm-from-the-command-line.html
         """
-        VM="ubuntu-64bit"
+        VM="ubuntu-64bit"   
+        try:
+            size = self.config['hdd']['size']
+        except KeyError:
+            size = '32768'
+
+        try:
+            ostype = self.config['ostype']
+        except KeyError:
+            ostype = 'Ubuntu_64'
+
         # Create the Harddrive
         try:
-            self.vbox('VBoxManage', 'createhd','--filename', '%s.vdi'%VM,'--size', '32768',)
+            self.vbox('VBoxManage', 'createhd','--filename', '%s.vdi'%VM,'--size', size,)
         except VBoxManageError as e:
             if "Failed to create hard disk" in str(e):
                 L.error(str(e))
                 sys.exit(0)
-            #raise VBoxManageError(str(e))
 
         # Create the Virtual Machines
         try:
-            self.vbox('VBoxManage', 'createvm','--name', VM, '--ostype', 'Ubuntu_64','--register')
+            self.vbox('VBoxManage', 'createvm','--name', VM, '--ostype', ostype ,'--register')
         except VBoxManageError as e:
+            L.error(str(e))
             if "Machine settings file" in str(e) and "already exists" in str(e):
-                L.error(str(e))
                 sys.exit(0)
-                #raise Exception(lines)
+            if "Guest OS type" in str(e) and "is invalid" in str(e):
+                L.error("In valid ostype")
+                L.error("run: vagabond list ostypes")
+                sys.exit(0)
                 
-        print "after vbox call"
-        raw_input()
 
-        raise Exception("Lets' build a machine from scratch")
 

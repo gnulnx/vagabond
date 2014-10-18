@@ -39,6 +39,8 @@ def getArgs():
     # Neither of these are current used       
     destroy_parser = subparser.add_parser('up', help="Bring the machine up")
     
+    list_parser = subparser.add_parser('list', help="list options")
+    list_parser.add_argument('--ostypes', action="store_true", help="Print a list of valid ostypes and exit")
     return parser.parse_args()
 
 def up(V):
@@ -113,14 +115,18 @@ def readVagabond():
     #TODO Need to do a verify/check on the imported Vagabond file.
 
     return Vagabond
+
+
 if __name__ == '__main__':
     args = getArgs()
     if args.subparser_name == 'init':
         init(args)
+    elif args.subparser_name == 'list':
+        if args.ostypes:
+            VM.show_valid_os_types()
     elif args.subparser_name == 'up':
         # Read the Vagrant file in the current directory
         vm = VM( options=readVagabond() )
         vm.up()
-        print "vm: ", vm
         
         
