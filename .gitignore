@@ -2,3 +2,7 @@
 *.pyo
 *.swp
 *~
+
+dist/
+deathstar/
+vagabond.egg-info/
