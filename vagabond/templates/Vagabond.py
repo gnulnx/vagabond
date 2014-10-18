@@ -12,5 +12,5 @@ config = {
     'hdd':{
         'size':'32768'
     },
-    'ostype':'Ubuntu_32',
+    'ostype':'Ubuntu_64',
 }
