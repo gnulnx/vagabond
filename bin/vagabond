@@ -8,7 +8,6 @@ from django.template import Context, Template
 from django.conf import settings
 settings.configure()
 
-from vm import VM
 
 """
     This is the vagabond command line utility
@@ -95,7 +94,14 @@ def init(args):
             raise
   
     # Now we need to use a templating system to copy our initial Vagabond.py file into the project directory 
-    t=Template(open('templates/Vagabond.py', 'r').read())
+    # TODO Make sure this works when installed as a python package
+    template_dir = os.path.normpath(
+        os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "../vagabond/templates"
+        )
+    )
+    t=Template(open('%s/Vagabond.py'%template_dir, 'r').read())
     c = Context({'version':API_VERSION})
     with open(vfile, 'w') as f:
         f.write(t.render(c))
@@ -117,7 +123,13 @@ def readVagabond():
     return Vagabond
 
 
-if __name__ == '__main__':
+#if __name__ == '__main__':
+if __name__ == '__main__' and __package__ is None:
+    from os import sys, path
+    sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
+    #from vagabond.vagabond.vm import VM
+    from vagabond.vm import VM
+
     args = getArgs()
     if args.subparser_name == 'init':
         init(args)
