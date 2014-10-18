@@ -102,7 +102,7 @@ if __name__ == '__main__' and __package__ is None:
             VM.show_valid_os_types()
     elif args.subparser_name == 'up':
         # Read the Vagrant file in the current directory
-        vm = VM( options=readVagabond() )
+        vm = VM( options=readVagabond(), args=args )
         vm.up()
         
         

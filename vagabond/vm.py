@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 import os
+import re
 import sys
-import argparse
 import subprocess
-import errno
 import logging
-#from django.template import Context, Template
-#from django.conf import settings
-#settings.configure()
 
 # Set up Module Logging
 # TODO:  Read this https://docs.python.org/2/howto/logging-cookbook.html
@@ -16,8 +12,6 @@ L.setLevel(logging.DEBUG)
 
 FORMAT='%(asctime)s - %(levelname)s - %(message)s'
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-
-# add formatter to ch
 
 ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
@@ -30,14 +24,12 @@ class VBoxManageError(ValueError):
         A generic error for VBoxManager errors
     """
     pass
-    #def __init__(self, msg):
-    #    self.msg = msg
-    #def __str__(self):
-    #    return repr(self.msg)
 
 class VM(object):
     def __init__(self, options, *args, **kwargs):
         self.config = options.config
+        self.args = kwargs.get('args')
+        self.force = self.args.force
 
     def up(self):
         # Check for Vagabond.py file
@@ -45,22 +37,18 @@ class VM(object):
         if not os.path.isfile(_file):
             L.error("No Vagabond.py file found.  Is this is this a vagabond project?")
             sys.exit(0)
-       
-        hostname = self.config.get('hostname', 'vagabond')
-  
-        count = 0
-        for media, value in self.config['media'].items():    
-            if value:
-                media_type = media
-                media_val = value
-                count = count + 1
-            
-        if count > 1:
-            L.info("You may only define one media type in %s" % self.config['media'].keys())
-            sys.exit(0)
-
-        if media_type == 'iso':
+      
+        media = self.config.get('media')
+        if not media:
+            raise ValueError("No media specified in Vagabond.py file")
+        
+        if media.get('iso'):
             self.iso_up()
+        elif media.get('vmdx'):
+            raise Exception("vmdx media type not supported yet")
+        elif media.get('vdi'):
+            raise Exception("vdi media type not supported yet")
+
     
     def _check_vbox_errors(self, err_log, args=None):
         """
@@ -98,7 +86,7 @@ class VM(object):
             with open(err_log, 'w') as f:
                 subprocess.check_output(args, stderr=f)
             
-            # sometimes subprocess exits cleanly, but VBoxManage still threw an error...
+            # sometimes subprocess exits cleanly, but VBoxManage still throws an error...
             errors = self._check_vbox_errors(err_log, args)
         except subprocess.CalledProcessError as e:
             # Log an error containing the failed command.
@@ -115,30 +103,48 @@ class VM(object):
                 valid_os.append(os)
                 print os
         return valid_os
- 
+
+     
     def iso_up(self):
         """
-            Creating the VM from an ISO image
+            Creating a VM from an ISO image
             http://www.perkin.org.uk/posts/create-virtualbox-vm-from-the-command-line.html
         """
+        # TODO This really should be user controllable right?
         VM="ubuntu-64bit"   
+
         try:
             size = self.config['hdd']['size']
         except KeyError:
             size = '32768'
 
-        try:
-            ostype = self.config['ostype']
-        except KeyError:
-            ostype = 'Ubuntu_64'
 
-        # Create the Harddrive
-        try:
+        # Set the ostype.  Must be from the list shown in: VBoxManage list ostypes
+        ostype = 'Ubuntu_64' if not self.config.get('ostype') else self.config['ostype']
+
+        # Create the virtual hard drive
+        try:    
             self.vbox('VBoxManage', 'createhd','--filename', '%s.vdi'%VM,'--size', size,)
         except VBoxManageError as e:
             if "Failed to create hard disk" in str(e):
-                L.error(str(e))
-                sys.exit(0)
+                if self.args.force:
+                    out = re.findall(r'Could not create the medium storage unit([^(]*)\\n', str(e))[0]
+                    out = out.strip().replace("'","")
+                    while out[-1] == '.':       
+                        out = out[:-1]
+
+                    if os.path.isfile(out) and out.endswith('.vdi'):
+                        L.info("force=True.  Removing %s"%out)
+                        os.unlink(out)
+                        try:
+                            L.info("Force=True, Rerunning")
+                            self.vbox('VBoxManage', 'createhd','--filename', '%s.vdi'%VM,'--size', size,)
+                        except VBoxManageError as e:
+                            L.error(str(e))
+                            sys.exit(0)
+                else:
+                    L.error(str(e))
+                    sys.exit(0)
 
         # Create the Virtual Machines
         try:
@@ -146,7 +152,24 @@ class VM(object):
         except VBoxManageError as e:
             L.error(str(e))
             if "Machine settings file" in str(e) and "already exists" in str(e):
-                sys.exit(0)
+                if self.args.force:
+                    out = re.findall(r'Machine settings file([^(]*)already exists', str(e))[0]
+                    out = out.strip().replace("'","")
+                    while out[-1] == '.':       
+                        out = out[:-1]
+                    if os.path.isfile(out) and out.endswith('.vbox'):
+                        L.info("force=True.  Removing %s"%out)
+                        os.unlink(out)
+                        try:
+                            L.info("Force=True, Rerunning")
+                            self.vbox('VBoxManage', 'createvm','--name', VM, '--ostype', ostype ,'--register')
+                        except VBoxManageError as e:
+                            L.error(str(e))
+                            sys.exit(0)
+                else:
+                    L.error(str(e))
+                    sys.exit(0)
+
             if "Guest OS type" in str(e) and "is invalid" in str(e):
                 L.error("In valid ostype")
                 L.error("run: vagabond list ostypes")
