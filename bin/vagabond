@@ -4,10 +4,6 @@ import sys
 import argparse
 import errno
 import logging
-#from django.template import Context, Template
-#from django.conf import settings
-#settings.configure()
-
 
 """
     This is the vagabond command line utility
@@ -36,7 +32,8 @@ def getArgs():
     init_parser.add_argument('-f', '--force', action="store_true", help="Overwrite existing Vagabond.py file")
 
     # Neither of these are current used       
-    destroy_parser = subparser.add_parser('up', help="Bring the machine up")
+    up_parser = subparser.add_parser('up', help="Bring the machine up")
+    up_parser.add_argument('-f', '--force', action="store_true", help="force create overwriting any previous machines")
     
     list_parser = subparser.add_parser('list', help="list options")
     list_parser.add_argument('--ostypes', action="store_true", help="Print a list of valid ostypes and exit")
