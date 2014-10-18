@@ -7,9 +7,15 @@ import logging
 from django.template import Context, Template
 from django.conf import settings
 settings.configure()
+
+from vm import VM
+
 """
     This is the vagabond command line utility
 """
+
+# This is the version number
+API_VERSION=0.1
 
 # Set up Module Logging
 # TODO:  Read this https://docs.python.org/2/howto/logging-cookbook.html
@@ -20,40 +26,6 @@ ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
 
 L.addHandler(ch)
-
-Build = {
-    'BaseBox':'addgene_base'
-}
-
-def init(args):
-    """
-        Initialize a project by:
-        1)  Create a direction (args.name)
-        2)  Use UPDATE_ME template to create initial Vagabond.py file
-    """
-    # The path to create the Vagabond.py file
-    vfile = os.path.join(args.name, "Vagabond.py")
-    try:
-        os.mkdir(args.name)
-    except OSError as e:
-        if errno.errorcode[e.errno] == 'EEXIST': #File Exists:  https://docs.python.org/2/library/errno.html
-            # Check for Vagabond file to confirm it is a vagabond project
-            if os.path.isfile(vfile):
-                L.error("There is already a vagabond project named %s, please choose another name"%args.name)
-                L.error("If you would like to force a reinitialize then pass --force")
-                sys.exit(0)
-            else:
-                L.error("There is already a directory named %s"%args.name)
-                sys.exit(0)
-        else:        
-            raise
-  
-    # Now we need to use a templating system to copy our initial Vagabond.py file into the project directory 
-    t=Template(open('templates/Vagabond.py', 'r').read())
-    c = Context({})
-    with open(vfile, 'w') as f:
-        f.write(t.render(c))
-        
 
 def getArgs():
     parser = argparse.ArgumentParser(description="Build and Manage a VirtualBox machine using python")
@@ -69,6 +41,63 @@ def getArgs():
     
     return parser.parse_args()
 
+def up(V):
+    """
+        Creating the VM from an ISO image
+        http://www.perkin.org.uk/posts/create-virtualbox-vm-from-the-command-line.html
+    """
+    # Check for Vagabond.py file
+    _file = os.path.join(os.getcwd(), "Vagabond.py")
+    if not os.path.isfile(_file):
+        L.error("No Vagabond.py file found.  Is this is this a vagabond project?")
+        sys.exit(0)
+       
+    config = V.config
+    hostname = config.get('hostname', 'vagabond')
+  
+    count = 0
+    for media, value in config['media'].items():    
+        if value:
+            media_type = media
+            media_val = value
+            count = count + 1
+            
+    if count > 1:
+        L.info("You may only define one media type in %s"%config['media'].keys())
+        sys.exit(0)
+    
+    
+def init(args):
+    """
+        Initialize a project by:
+        1)  Create a direction (args.name)
+        2)  Use UPDATE_ME template to create initial Vagabond.py file
+    """
+    # The path to create the Vagabond.py file
+    vfile = os.path.join(args.name, "Vagabond.py")
+    try:
+        os.mkdir(args.name)
+    except OSError as e:
+        if errno.errorcode[e.errno] == 'EEXIST': #File Exists:  https://docs.python.org/2/library/errno.html
+            # Check for Vagabond file to confirm it is a vagabond project
+            if os.path.isfile(vfile) and args.force:
+                pass
+            elif os.path.isfile(vfile) and not args.force:
+                L.error("There is already a vagabond project named %s, please choose another name"%args.name)
+                L.error("If you would like to force a reinitialize then pass --force")
+                sys.exit(0)
+            else:
+                L.error("There is already a directory named %s"%args.name)
+                sys.exit(0)
+        else:        
+            raise
+  
+    # Now we need to use a templating system to copy our initial Vagabond.py file into the project directory 
+    t=Template(open('templates/Vagabond.py', 'r').read())
+    c = Context({'version':API_VERSION})
+    with open(vfile, 'w') as f:
+        f.write(t.render(c))
+        
 
 def readVagabond():
     # Check for Vagabond file in local directory
@@ -90,8 +119,8 @@ if __name__ == '__main__':
         init(args)
     elif args.subparser_name == 'up':
         # Read the Vagrant file in the current directory
-        V = readVagabond()
-
-        # TODO: Figure out what to do
-        print V.Build
+        vm = VM( options=readVagabond() )
+        vm.up()
+        print "vm: ", vm
+        
         
