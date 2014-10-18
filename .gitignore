@@ -4,5 +4,6 @@
 *~
 
 dist/
+build/
 deathstar/
 vagabond.egg-info/

@@ -4,9 +4,9 @@ import sys
 import argparse
 import errno
 import logging
-from django.template import Context, Template
-from django.conf import settings
-settings.configure()
+#from django.template import Context, Template
+#from django.conf import settings
+#settings.configure()
 
 
 """
@@ -95,16 +95,19 @@ def init(args):
   
     # Now we need to use a templating system to copy our initial Vagabond.py file into the project directory 
     # TODO Make sure this works when installed as a python package
-    template_dir = os.path.normpath(
-        os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "../vagabond/templates"
-        )
-    )
-    t=Template(open('%s/Vagabond.py'%template_dir, 'r').read())
-    c = Context({'version':API_VERSION})
+    #template_dir = os.path.normpath(
+    #    os.path.join(
+    #        os.path.dirname(os.path.abspath(__file__)),
+    #        "../vagabond/templates"
+    #    )
+    #)
+    #t=Template(open('%s/Vagabond.py'%template_dir, 'r').read())
+    #c = Context({'version':API_VERSION})
+    from templates import VagabondTemplate
+    VagabondTemplate.render({'version':API_VERSION})
     with open(vfile, 'w') as f:
-        f.write(t.render(c))
+        f.write( VagabondTemplate.render({'version':API_VERSION}) )
+        #f.write(t.render(c))
         
 
 def readVagabond():
@@ -116,7 +119,6 @@ def readVagabond():
     # Add current directory to sys path...
     # so that when we load the Vagabond module it loads the users module
     sys.path.insert(0, os.getcwd())
-    import Vagabond
 
     #TODO Need to do a verify/check on the imported Vagabond file.
 
@@ -127,7 +129,6 @@ def readVagabond():
 if __name__ == '__main__' and __package__ is None:
     from os import sys, path
     sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-    #from vagabond.vagabond.vm import VM
     from vagabond.vm import VM
 
     args = getArgs()
