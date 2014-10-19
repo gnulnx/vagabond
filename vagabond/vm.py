@@ -29,9 +29,19 @@ class VM(object):
     def __init__(self, options, *args, **kwargs):
         self.config = options.config
         self.args = kwargs.get('args')
-        self.force = self.args.force
         
         self.vm_name = self.config.get('vmname', "ubuntu-64bit")
+
+    def listvms(self):
+        out = self.vbox('VBoxManage', 'list', 'vms')
+
+        outDict = {}
+        for line in out.split("\n"):
+            if line:
+                (name, UUID) = line.split()
+                outDict[name.replace('"','')] = UUID
+       
+        return outDict
 
     def up(self):
         # Check for Vagabond.py file
@@ -43,8 +53,11 @@ class VM(object):
         media = self.config.get('media')
         if not media:
             raise ValueError("No media specified in Vagabond.py file")
-        
-        if media.get('iso'):
+       
+
+        if self.vm_name in self.listvms():
+            self.startvm()
+        elif media.get('iso'):
             self.iso_up()
         elif media.get('vmdx'):
             raise Exception("vmdx media type not supported yet")
@@ -55,15 +68,15 @@ class VM(object):
     def _check_vbox_errors(self, err_log, args=None):
         """
             Check for errors and raise VBoxManageError
+            Compiles a list of VBoxManage: error: 
         """
-        errors = []
-
         if not os.path.isfile(err_log):
-            return errors
+            return None
 
         with open(err_log, 'r') as f:
             tmp_error = f.readlines()
             
+        errors = []
         for line in tmp_error:
             if "VBoxManage: error: " in line:
                 errors.append(line)
@@ -74,7 +87,7 @@ class VM(object):
             L.error(" ".join(args))
             raise VBoxManageError(errors)
 
-        return errors
+        return None
       
     def vbox(self, *args):
         """
@@ -85,15 +98,21 @@ class VM(object):
         err_log=".vagabond.error.log"
         try:
             L.info(" ".join(args))
+            out = ''
             with open(err_log, 'w') as f:
                 out = subprocess.check_output(args, stderr=f)
-                L.info("subprocess:"+str(out))
+                if out:
+                    L.info("cmd out:"+str(out))
             
             # sometimes subprocess exits cleanly, but VBoxManage still throws an error...
-            errors = self._check_vbox_errors(err_log, args)
+            self._check_vbox_errors(err_log, args)
+            return out
         except subprocess.CalledProcessError as e:
             # Log an error containing the failed command.
-            errors = self._check_vbox_errors(err_log, args)
+            self._check_vbox_errors(err_log, args)
+
+            # Probably won't get here
+            raise
 
     @staticmethod
     def show_valid_os_types():
@@ -112,7 +131,8 @@ class VM(object):
             size = self.config['hdd']['size']
         except KeyError:
             size = '32768'
-        
+
+        # TODO File name needs to be in a better location...like .vagabond/boxes/self.vm_name
         # Create the virtual hard drive
         try:   
             self.vbox('VBoxManage', 'createhd','--filename', '%s.vdi'%self.vm_name,'--size', size,)
@@ -255,14 +275,16 @@ class VM(object):
                 L.error(str(e))
                 sys.exit(0)
 
+        self.startvm()
+        
+    def startvm(self, vm_name=None):
         ## Finally start the machien up.
         # NOTE Should you move this up above? 
-        for _ in [True]:
-            try:
-                self.vbox('VBoxManage', 'startvm', self.vm_name)
-            except VBoxManageError as e:
-                L.error(str(e))
-                sys.exit(0)
+        try:
+            self.vbox('VBoxManage', 'startvm', self.vm_name)
+        except VBoxManageError as e:
+            L.error(str(e))
+            sys.exit(0)
 
     def unregistervm(self, vm_name=None):
         """
@@ -275,7 +297,9 @@ class VM(object):
         L.info("unregistervm: " + self.vm_name)
 
         try:
-            self.vbox('vboxmanage', 'unregistervm', vm_name)
+            self.vbox('VBoxManage', 'unregistervm', vm_name)
         except VBoxManageError as e:
             if "Could not find a registered machine named '%s'"%self.vm_name in e:
                 pass
+
+

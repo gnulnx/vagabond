@@ -30,6 +30,16 @@ def getArgs():
     init_parser = subparser.add_parser('init', help="Start a Vagabond Project")
     init_parser.add_argument('name', help="The name of the project")
     init_parser.add_argument('-f', '--force', action="store_true", help="Overwrite existing Vagabond.py file")
+    init_parser.add_argument('-m', '--media', action="store", help="*.iso, url to *.iso")
+
+    destroy_parser = subparser.add_parser('destroy', help="Destroy the virtual machine")
+
+    halt_parser = subparser.add_parser('halt', help="Halt the virtual machine")
+    halt_parser.add_argument('-f', '--force', action="store_true", help="Yank the plug")
+
+    
+    package_parser = subparser.add_parser('package', help="Create a Vagabond package")
+    package_parser.add_argument('-o', '--output', action="store", help="Name of the output file")
 
     # Neither of these are current used       
     up_parser = subparser.add_parser('up', help="Bring the machine up")
@@ -65,12 +75,31 @@ def init(args):
                 sys.exit(0)
         else:        
             raise
-  
+
+    # TODO This is for debug only
+    args.media="/Users/jfurr/Downloads/ubuntu-14.04.1-desktop-amd64.iso"
+ 
+    # Check to see if --media option was present 
+    iso=None
+    vdi=None
+    vmdx=None
+    if args.media:
+        iso = args.media if args.media.endswith(".iso") else None
+        vdi = args.media if args.media.endswith(".vdi") else None
+        vmdx = args.media if args.media.endswith(".vmdx") else None
+
+
     # Now we need to use a templating system to copy our initial Vagabond.py file into the project directory 
     from vagabond.templates import VagabondTemplate
     VagabondTemplate.render({'version':API_VERSION})
     with open(vfile, 'w') as f:
-        f.write( VagabondTemplate.render({'version':API_VERSION}) )
+        f.write( VagabondTemplate.render({
+            'version':API_VERSION,
+            'vmname':args.name,
+            'iso':iso,
+            'vdi':vdi,
+            'vmdx':vmdx,
+        }))
         
 
 def readVagabond():
@@ -88,15 +117,30 @@ def readVagabond():
 
     return Vagabond
 
-
+def setup_project():
+    """
+        Set up the ~/.vagabond directory
+    """ 
+    try: 
+        os.makedirs("~/.vagabond/boxes/")
+    except OSError as e:
+        if errno.errorcode[e.errno] == 'EEXIST':
+            pass
+        else:
+            raise
+    
 #if __name__ == '__main__':
 if __name__ == '__main__' and __package__ is None:
     from os import sys, path
     sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-    from vagabond.vm import VM
+    from vagabond.vm import VM, VBoxManageError
+
+    setup_project()
 
     args = getArgs()
     if args.subparser_name == 'init':
+        # Look into how vagrant does this
+        # vagrant box add lucid32 http://files.vagrantup.com/lucid32.box
         init(args)
     elif args.subparser_name == 'list':
         if args.ostypes:
@@ -105,5 +149,17 @@ if __name__ == '__main__' and __package__ is None:
         # Read the Vagrant file in the current directory
         vm = VM( options=readVagabond(), args=args )
         vm.up()
-        
-        
+    elif args.subparser_name == 'destroy':
+        vm = VM( options=readVagabond(), args=args )
+        vm.unregistervm()
+    elif args.subparser_name == 'package':
+        raise Exception("You haven't implemented the package subparser yet") 
+       
+    elif args.subparser_name == 'halt':
+        vm = VM( options=readVagabond(), args=args )
+        try:
+            print args
+            vm.vbox('VBoxManage', 'controlvm', vm.config['vmname'], 'savestate')
+        except VBoxManageError as e:
+            raise e
+            
