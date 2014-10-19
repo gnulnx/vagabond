@@ -85,7 +85,7 @@ def init(args):
             raise
 
     # TODO This is for debug only
-    args.media="/Users/jfurr/Downloads/ubuntu-14.04.1-desktop-amd64.iso"
+    args.media="/Users/jfurr/Downloads/ubuntu-14.04.1-server-i386.iso"
  
     # Check to see if --media option was present 
     iso=None
@@ -99,7 +99,6 @@ def init(args):
 
     # Now we need to use a templating system to copy our initial Vagabond.py file into the project directory 
     from vagabond.templates import VagabondTemplate
-    VagabondTemplate.render({'version':API_VERSION})
     with open(vfile, 'w') as f:
         f.write( VagabondTemplate.render({
             'version':API_VERSION,
@@ -141,7 +140,6 @@ def setup_project():
         else:
             raise
     
-#if __name__ == '__main__':
 if __name__ == '__main__' and __package__ is None:
     from os import sys, path
     sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
