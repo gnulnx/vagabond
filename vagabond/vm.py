@@ -37,7 +37,7 @@ class VM(object):
     @staticmethod
     def download(link, file_name):
         """
-            Ises the clint library to show a download progress bar for downloads
+            Uses the clint library to show a download progress bar for downloads
         """
         from clint.textui import progress
         L.info("downloading: " + link)
