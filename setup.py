@@ -98,5 +98,7 @@ setup(
     ],
     install_requires=[
         "django", 
+        "requests",
+        "clint",
     ],
 )

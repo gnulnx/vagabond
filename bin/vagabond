@@ -37,7 +37,15 @@ def getArgs():
     halt_parser = subparser.add_parser('halt', help="Halt the virtual machine")
     halt_parser.add_argument('-f', '--force', action="store_true", help="Yank the plug")
 
+    box_parser = subparser.add_parser('box', help="Manage vagabond boxes")
+    box_subparser = box_parser.add_subparsers(help="Sub processor help", dest="box_subparser_name")
     
+    box_add_parser =  box_subparser.add_parser('add', help="Add a new box")
+    box_add_parser.add_argument('-n', '--name', action="store", required=True, help="Name of the box")
+    box_add_parser.add_argument('-l', '--loc', action="store", required=True, help="Location of the box")
+    #box_add_subparser = box_add_parser.add_subparsers(help="Sub processor help", dest="add_subparser_name")
+    #box_add_name_subparser = box_add_subparser.add_parser('name', help="Sub processor help")
+
     package_parser = subparser.add_parser('package', help="Create a Vagabond package")
     package_parser.add_argument('-o', '--output', action="store", help="Name of the output file")
 
@@ -121,12 +129,12 @@ def setup_project():
     """
         Set up the ~/.vagabond directory
     """ 
-    vagrant_dirs = os.path.join(
+    vagabond_dirs = os.path.join(
         os.path.expanduser("~"),
         ".vagabond/boxes/",
     )
     try: 
-        os.makedirs(vagrant_dirs)
+        os.makedirs(vagabond_dirs)
     except OSError as e:
         if errno.errorcode[e.errno] == 'EEXIST':
             pass
@@ -167,3 +175,9 @@ if __name__ == '__main__' and __package__ is None:
         except VBoxManageError as e:
             raise e
             
+    elif args.subparser_name == 'box':
+        if args.box_subparser_name == 'add':
+            VM.addbox(args)
+            L.info("Box added:" + args.name)
+
+

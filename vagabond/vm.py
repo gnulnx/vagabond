@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 import os
+import errno
+import requests
 import re
 import sys
 import subprocess
@@ -32,6 +34,57 @@ class VM(object):
         
         self.vm_name = self.config.get('vmname', "ubuntu-64bit")
 
+    @staticmethod
+    def download(link, file_name):
+        """
+            Ises the clint library to show a download progress bar for downloads
+        """
+        from clint.textui import progress
+        L.info("downloading: " + link)
+        r = requests.get(link, stream=True)
+        with open(file_name, 'wb') as f:
+            total_length = int(r.headers.get('content-length'))
+            for chunk in progress.bar(r.iter_content(chunk_size=1024), expected_size=(total_length/1024) + 1): 
+                if chunk:
+                    f.write(chunk)
+                    f.flush()
+
+        return r
+
+    @staticmethod
+    def addbox(args):
+        boxdir = os.path.join(
+            os.path.expanduser("~"),
+            ".vagabond/boxes/",
+        )
+        if args.loc.startswith("http://") and args.loc.endswith(".box"):
+            # TODO Add progress bar indicator:  http://stackoverflow.com/questions/15644964/python-progress-bar-and-downloads   
+            try:
+                projdir = os.path.normpath(os.makedirs(os.path.join(boxdir, args.name)))
+            except OSError as e:
+                if errno.errorcode[e.errno] == 'EEXIST':
+                    projdir = os.path.normpath(os.path.join(boxdir, args.name))
+                else:
+                    raise 
+            filename = os.path.join(projdir, args.name)
+
+            r = VM.download(args.loc, filename)
+            if r.status_code == 200:        
+                # save current location
+                hold = os.getcwd() 
+                
+                os.chdir(projdir)
+    
+                # uncompress the downloaded files
+                subprocess.check_output(['tar', 'xvfz', filename])
+
+                # Now remove the downloaded file
+                os.unlink(filename)
+
+                os.chdir(hold)
+            else:
+                raise ValueError("status_code: " + r.status_code)
+    
     def listvms(self):
         out = self.vbox('VBoxManage', 'list', 'vms')
 
@@ -279,7 +332,6 @@ class VM(object):
         
     def startvm(self, vm_name=None):
         ## Finally start the machien up.
-        # NOTE Should you move this up above? 
         try:
             self.vbox('VBoxManage', 'startvm', self.vm_name)
         except VBoxManageError as e:
