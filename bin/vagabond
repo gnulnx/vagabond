@@ -121,8 +121,12 @@ def setup_project():
     """
         Set up the ~/.vagabond directory
     """ 
+    vagrant_dirs = os.path.join(
+        os.path.expanduser("~"),
+        ".vagabond/boxes/",
+    )
     try: 
-        os.makedirs("~/.vagabond/boxes/")
+        os.makedirs(vagrant_dirs)
     except OSError as e:
         if errno.errorcode[e.errno] == 'EEXIST':
             pass
