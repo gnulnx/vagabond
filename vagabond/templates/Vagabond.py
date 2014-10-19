@@ -1,6 +1,7 @@
 VAGABOND_API_VERSION={{version}}
 
 config = {
+    'vmname':'deathstar',
     'hostname':'box1',
 
     # You must set 1 media type.  Make sure the other options are set to None

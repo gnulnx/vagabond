@@ -34,6 +34,7 @@ def getArgs():
     # Neither of these are current used       
     up_parser = subparser.add_parser('up', help="Bring the machine up")
     up_parser.add_argument('-f', '--force', action="store_true", help="force create overwriting any previous machines")
+    up_parser.add_argument('--hard-force', action="store_true", help="start bu unregistering any vms with the same name")
     
     list_parser = subparser.add_parser('list', help="list options")
     list_parser.add_argument('--ostypes', action="store_true", help="Print a list of valid ostypes and exit")
