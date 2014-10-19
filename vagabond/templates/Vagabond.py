@@ -9,7 +9,7 @@ config = {
 
     # You must set 1 media type.  Make sure the other options are set to None
     'media':{
-        'iso':{% if iso %}'{{iso}}'{% else %}None{% endi f%},
+        'iso':{% if iso %}'{{iso}}'{% else %}None{% endif %},
         'vdi':{% if vdi %}'{{vdi}}'{% else %}None{% endif %},
         'vmdx':{% if vmdx %}'{{vmdx}}'{% else %}None{% endif %},
     },
