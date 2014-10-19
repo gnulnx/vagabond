@@ -246,27 +246,8 @@ class VM(object):
                 L.error("In valid ostype")
                 L.error("run: vagabond list ostypes")
                 sys.exit(0)
-        
-     
-    def iso_up(self):
-        """
-            Creating a VM from an ISO image
-            http://www.perkin.org.uk/posts/create-virtualbox-vm-from-the-command-line.html
-        """
-        try:
-            size = self.config['hdd']['size']
-        except KeyError:
-            size = '32768'
-
-
-        # This is a --hard-force switch....dirty, but works for cleaning it all up
-        if self.args.hard_force:
-            self.unregistervm()
-
-        self.createhd()
-
-        self.createvm()
-
+       
+    def addSATA(self):
         for _ in [True]:
             try:
                 self.vbox('VBoxManage', 'storagectl', self.vm_name, 
@@ -287,6 +268,27 @@ class VM(object):
                     L.error(str(e))
                     sys.exit(0)
 
+     
+    def iso_up(self):
+        """
+            Creating a VM from an ISO image
+            http://www.perkin.org.uk/posts/create-virtualbox-vm-from-the-command-line.html
+        """
+        try:
+            size = self.config['hdd']['size']
+        except KeyError:
+            size = '32768'
+
+
+        # This is a --hard-force switch....dirty, but works for cleaning it all up
+        if self.args.hard_force:
+            self.unregistervm()
+
+        self.createhd()
+
+        self.createvm()
+
+        self.addSATA()
            
         for _ in [True]:
             try:
