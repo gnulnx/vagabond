@@ -9,9 +9,9 @@ config = {
 
     # You must set 1 media type.  Make sure the other options are set to None
     'media':{
-        'iso':'{{iso}}',
-        'vmdx':None,
-        'vdi':None,
+        'iso':{% if iso %}'{{iso}}'{% else %}None{% endi f%},
+        'vdi':{% if vdi %}'{{vdi}}'{% else %}None{% endif %},
+        'vmdx':{% if vmdx %}'{{vmdx}}'{% else %}None{% endif %},
     },
 
     # The settings for the vm hard drie.
