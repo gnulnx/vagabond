@@ -79,6 +79,7 @@ class VM(object):
                 subprocess.check_output(['tar', 'xvfz', filename])
 
                 # Now remove the downloaded file
+                # TODO:  Delete the Vagrant file that is downloaded as well
                 os.unlink(filename)
 
                 os.chdir(hold)
