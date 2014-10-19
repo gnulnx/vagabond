@@ -79,7 +79,7 @@ class VM(object):
                 subprocess.check_output(['tar', 'xvfz', filename])
 
                 # Now remove the downloaded file
-                # TODO:  Delete the Vagrant file that is downloaded as well
+                # TODO:  Delete the Vagrant file that is downloaded as well..if it's a *.box format
                 os.unlink(filename)
 
                 os.chdir(hold)
@@ -146,7 +146,7 @@ class VM(object):
     def vbox(self, *args):
         """
             Pass in a list of command/args to call VBoxManage.  We use subprocess to
-            write sterr to a file. On subprocess.CalledProcessError we read in the error
+            write to stderr to a file. On subprocess.CalledProcessError we read in the error
             file and raise a VBoxManageError with the contents of the file as the message
         """
         err_log=".vagabond.error.log"
