@@ -8,20 +8,10 @@ import re
 import sys
 import subprocess
 import logging
+import logging.config
 
-# Set up Module Logging
-# TODO:  Read this https://docs.python.org/2/howto/logging-cookbook.html
-L = logging.getLogger(__name__)
-L.setLevel(logging.DEBUG)
-
-FORMAT='%(asctime)s - %(levelname)s - %(message)s'
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-
-ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
-ch.setFormatter(formatter)
-
-L.addHandler(ch)
+from vagabond.logger.logger import get_logger
+L = get_logger()
 
 class VBoxManageError(ValueError):
     """ A generic error for VBoxManager errors """
@@ -140,7 +130,8 @@ class VM(object):
         media = self.config.get('media')
         if not media:
             raise ValueError("No media specified in Vagabond.py file")
-       
+    
+        L.info("media type: %s", media)   
 
         if self.vm_name in self.listvms():
             self.startvm()
