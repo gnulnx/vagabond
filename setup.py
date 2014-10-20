@@ -100,5 +100,6 @@ setup(
         "django", 
         "requests",
         "clint",
+        "logutils",
     ],
 )

@@ -60,6 +60,7 @@ class ColorHandler(ColorizingStreamHandler):
     def __init__(self, *args, **kwargs):
         super(ColorHandler, self).__init__(*args, **kwargs)
         self.level_map = {
+                # Logger : bg, fg, bold
                 logging.DEBUG: (None, 'blue', False),
                 logging.INFO: (None, 'green', False),
                 logging.WARNING: (None, 'yellow', False),
