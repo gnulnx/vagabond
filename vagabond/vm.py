@@ -11,7 +11,10 @@ import logging
 import logging.config
 
 from vagabond.logger.logger import get_logger
+
 L = get_logger()
+
+from vagabond.version import API_VERSION
 
 class VBoxManageError(ValueError):
     """ A generic error for VBoxManager errors """
@@ -22,13 +25,104 @@ class VagabondError(ValueError):
     pass
 
 class VM(object):
-    def __init__(self, options, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
+        self.kwargs = kwargs
+
+        if self.kwargs.get('subparser_name') == 'init':
+            self.init(self.kwargs)
+            raise Exception("Init all day my man")
+
+        print "Yep: ", args
+        raw_input()
+        args = kwargs.get('args')
+        if not args:
+            L.critical("can not proceed with empty args list")
+            sys.exit(0)
+
+ 
+        L.info("args: %s", args)
+        L.info("kwargs: %s", kwargs)
+        sys.exit(0)
         self.config = options.config
         self.args = kwargs.get('args')
           
         self.vm_name = self.config.get('vmname', "ubuntu-64bit")
-       
+
+        if self.args.subparser_name == 'init':
+            # This process needs to do more work.  It needs to initialize the project directory for one.
+            self._create_project_dir()
+        else:
+            self._set_project_dir()
+            if not os.path.isdir(self.projdir):
+                if self.args.subparser_name == 'up':
+                    L.critical("(%s) is not a directory"%self.projdir)
+                    raise ValueError("(%s) is not a directory"%self.projdir)
+                else:
+                    L.warn("(%s) is not a directory"%self.projdir)
+        
+
+    #TODO This isn't used yet
+    def init(self, args):
+        """
+            Initialize a project by:
+            1)  Create a direction (args.name)
+            2)  Use UPDATE_ME template to create initial Vagabond.py file
+        """
+      
+        # NOTE:  This wrong.  the projdir should be something like ~/.vagabond/boxes/project_name
+        self.vm_name = self.kwargs.get('name')
+        L.info("self.vm_name: %s", self.vm_name)
+         
+        # Create the project directory    
         self._create_project_dir()
+
+        media = self.kwargs.get('media')
+
+        # TODO This is for debug only
+        if not media:
+            media="/Users/jfurr/Downloads/ubuntu-14.04.1-server-i386.iso"
+
+        #if "~" in args.media:
+        media = os.path.normpath( os.path.expanduser(media) )
+
+        # Check to see if --media option was present 
+        iso=None
+        vdi=None
+        vmdx=None
+        if media:
+            iso = media if media.endswith(".iso") else None
+            vdi = media if media.endswith(".vdi") else None
+            vmdx = media if media.endswith(".vmdx") else None
+
+        
+        # Now we need to use a templating system to copy our initial Vagabond.py file into the project directory 
+        from vagabond.templates import VagabondTemplate
+        vfile = os.path.join( os.path.abspath(self.vm_name), "Vagabond.py") 
+        with open(vfile, 'w') as f:
+            f.write( VagabondTemplate.render({
+                'version':API_VERSION,
+                'vmname':self.vm_name,
+                'iso':iso,
+                'vdi':vdi,
+                'vmdx':vmdx,
+            }))
+
+
+    def readVagabond(self):
+        # Check for Vagabond file in local directory
+        vfile = os.path.join(os.getcwd(), "Vagabond.py")
+        if not os.path.isfile(vfile):
+            raise IOError("You must have a Vagabond file in your current directory")
+
+        # Add current directory to sys path...
+        # so that when we load the Vagabond module it loads the users module
+        sys.path.insert(0, os.getcwd())
+        import Vagabond
+
+        #TODO Need to do a verify/check on the imported Vagabond file.
+
+        return Vagabond
+
 
     def _set_project_dir(self):
         # boxdir ~./vagabond/boxes
@@ -40,10 +134,16 @@ class VM(object):
         # projdir ~/.vagabond/boxes/self.vm_name
         self.projdir = os.path.normpath(os.path.join(boxdir, self.vm_name))
 
-    def _create_project_dir(self):
+    def _create_project_dir(self, count=0):
         """
-            Create a new project directory or raise VagabondError
+            Create the project directory.  
+            If the project directory exists and --force was issued
+            then we remove the prject directory and do a single shot
+            recursive call self._create_project_dir(count=1) setting
+            the count variable to inform us to short circuit if 
+            creation of the project directory fails a second time.
         """
+        # Set the project directory
         self._set_project_dir()
 
         L.info("Checking for project directory")
@@ -51,7 +151,22 @@ class VM(object):
             L.info("Creating project directory %s"%self.projdir)
             os.makedirs(self.projdir)
         else:
-            L.warn("Project directory(%s) already exists."%self.projdir)
+            if count > 0:
+                L.critical("Project directory(%s) already exists and unable to remove."%self.projdir)
+                sys.exit(0)
+            else:
+                L.warning("Project directory(%s) already exists."%self.projdir)
+                
+            if self.kwargs['force']:
+                L.warn("--force Removing project directry %s", self.projdir)
+                import shutil
+
+                shutil.rmtree(os.path.abspath(self.projdir))
+                return self._create_project_dir(count=count+1)
+            else:
+                L.critical("Project directory(%s) already exists.  Try --force to remove it and start fresh"%self.projdir)
+                sys.exit(0)
+
 
     @staticmethod
     def download(link, file_name):
@@ -386,8 +501,6 @@ class VM(object):
         """
         if not vm_name:
             vm_name = self.vm_name
-
-        L.info("unregistervm: " + self.vm_name)
 
         try:
             self.vbox('VBoxManage', 'unregistervm', vm_name, "--delete")

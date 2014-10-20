@@ -9,10 +9,6 @@ import logging
     This is the vagabond command line utility
 """
 
-# This is the version number
-# TODO Read this from setup.py
-API_VERSION=0.1
-
 
 def getArgs():
     parser = argparse.ArgumentParser(description="Build and Manage a VirtualBox machine using python")
@@ -51,55 +47,6 @@ def getArgs():
     return parser.parse_args()
 
     
-def init(args):
-    """
-        Initialize a project by:
-        1)  Create a direction (args.name)
-        2)  Use UPDATE_ME template to create initial Vagabond.py file
-    """
-    # The path to create the Vagabond.py file
-    vfile = os.path.abspath(os.path.join(args.name, "Vagabond.py"))
-    try:
-        os.mkdir(args.name)
-    except OSError as e:
-        if errno.errorcode[e.errno] == 'EEXIST': #File Exists:  https://docs.python.org/2/library/errno.html
-            # Check for Vagabond file to confirm it is a vagabond project
-            if os.path.isfile(vfile) and args.force:
-                pass
-            elif os.path.isfile(vfile) and not args.force:
-                L.error("There is already a vagabond project named %s, please choose another name"%args.name)
-                L.error("If you would like to force a reinitialize then pass --force")
-                sys.exit(0)
-            else:
-                L.error("There is already a directory named %s"%args.name)
-                sys.exit(0)
-        else:        
-            raise
-
-    # TODO This is for debug only
-    args.media="/Users/jfurr/Downloads/ubuntu-14.04.1-server-i386.iso"
- 
-    # Check to see if --media option was present 
-    iso=None
-    vdi=None
-    vmdx=None
-    if args.media:
-        iso = args.media if args.media.endswith(".iso") else None
-        vdi = args.media if args.media.endswith(".vdi") else None
-        vmdx = args.media if args.media.endswith(".vmdx") else None
-
-
-    # Now we need to use a templating system to copy our initial Vagabond.py file into the project directory 
-    from vagabond.templates import VagabondTemplate
-    with open(vfile, 'w') as f:
-        f.write( VagabondTemplate.render({
-            'version':API_VERSION,
-            'vmname':args.name,
-            'iso':iso,
-            'vdi':vdi,
-            'vmdx':vmdx,
-        }))
-        
 
 def readVagabond():
     # Check for Vagabond file in local directory
@@ -142,10 +89,14 @@ if __name__ == '__main__' and __package__ is None:
     setup_project()
 
     args = getArgs()
+    L.info("args: %s", args)
+    vm = VM(**args.__dict__)
+    raise Exception("You should be done")
     if args.subparser_name == 'init':
         # Look into how vagrant does this
         # vagrant box add lucid32 http://files.vagrantup.com/lucid32.box
-        init(args)
+        VM.init(args)
+        #init(args)
     elif args.subparser_name == 'list':
         if args.ostypes:
             VM.show_valid_os_types()
@@ -153,6 +104,9 @@ if __name__ == '__main__' and __package__ is None:
         # Read the Vagrant file in the current directory
         vm = VM( options=readVagabond(), args=args)
         vm.up()
+    elif args.subparser_name == 'halt':
+        vm = VM( options=readVagabond(), args=args)
+        vm.halt()
     elif args.subparser_name == 'destroy':
         vm = VM( options=readVagabond(), args=args)
         vm.halt()
@@ -160,9 +114,6 @@ if __name__ == '__main__' and __package__ is None:
     elif args.subparser_name == 'package':
         raise Exception("You haven't implemented the package subparser yet") 
        
-    elif args.subparser_name == 'halt':
-        vm = VM( options=readVagabond(), args=args)
-        vm.halt()
             
     elif args.subparser_name == 'box':
         if args.box_subparser_name == 'add':
