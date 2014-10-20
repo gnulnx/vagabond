@@ -66,7 +66,7 @@ def init(args):
         2)  Use UPDATE_ME template to create initial Vagabond.py file
     """
     # The path to create the Vagabond.py file
-    vfile = os.path.join(args.name, "Vagabond.py")
+    vfile = os.path.abspath(os.path.join(args.name, "Vagabond.py"))
     try:
         os.mkdir(args.name)
     except OSError as e:
@@ -160,13 +160,13 @@ if __name__ == '__main__' and __package__ is None:
         vm = VM( options=readVagabond(), args=args )
         vm.up()
     elif args.subparser_name == 'destroy':
-        vm = VM( options=readVagabond(), args=args )
+        vm = VM( options=readVagabond(), args=args, destroy=True )
         vm.unregistervm()
     elif args.subparser_name == 'package':
         raise Exception("You haven't implemented the package subparser yet") 
        
     elif args.subparser_name == 'halt':
-        vm = VM( options=readVagabond(), args=args )
+        vm = VM( options=readVagabond(), args=args, halt=True )
         try:
             print args
             vm.vbox('VBoxManage', 'controlvm', vm.config['vmname'], 'savestate')

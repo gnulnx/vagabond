@@ -7,8 +7,12 @@ config = {
     # hostname of the machine
     'hostname':'box1',
 
+    # Select OS type.  To see types run vagabond list --ostypes
+    'ostype':'Ubuntu_64',
+
     # You must set 1 media type.  Make sure the other options are set to None
     'media':{
+        'box':{% if box %}'{{box}}'{% else %}None{% endif %},
         'iso':{% if iso %}'{{iso}}'{% else %}None{% endif %},
         'vdi':{% if vdi %}'{{vdi}}'{% else %}None{% endif %},
         'vmdx':{% if vmdx %}'{{vmdx}}'{% else %}None{% endif %},
@@ -19,6 +23,4 @@ config = {
         'size':'32768'
     },
 
-    # Select OS type.  To see types run vagabond list --ostypes
-    'ostype':'Ubuntu_64',
 }

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os
+import glob, os
 import errno
 import requests
 import re
@@ -22,17 +23,52 @@ ch.setFormatter(formatter)
 L.addHandler(ch)
 
 class VBoxManageError(ValueError):
-    """
-        A generic error for VBoxManager errors
-    """
+    """ A generic error for VBoxManager errors """
+    pass
+
+class VagabondError(ValueError):
+    """ A generic Vagabond specific error """
     pass
 
 class VM(object):
     def __init__(self, options, *args, **kwargs):
         self.config = options.config
         self.args = kwargs.get('args')
-        
+          
         self.vm_name = self.config.get('vmname', "ubuntu-64bit")
+       
+        #if kwargs.get('destroy') or kwargs.get("halt"):
+        #    self._set_project_dir()
+        #else:
+
+        try:
+            self._create_project_dir()
+        except VagabondError as e:
+            self._set_project_dir()
+
+    def _set_project_dir(self):
+        # boxdir ~./vagabond/boxes
+        boxdir = os.path.join(
+            os.path.expanduser("~"),
+            ".vagabond/boxes/",
+        )
+
+        # projdir ~/.vagabond/boxes/self.vm_name
+        self.projdir = os.path.normpath(os.path.join(boxdir, self.vm_name))
+
+    def _create_project_dir(self):
+        """
+            Create a new project directory or raise VagabondError
+        """
+        self._set_project_dir()
+
+        if not os.path.isdir(self.projdir):
+            os.makedirs(self.projdir)
+        else:
+            
+            if not self.args.__dict__.get('force', False):
+                L.error("Project directory(%s) already exists.  Use --force to ignore this warning" % self.projdir)
+                raise VagabondError("Project dir(%s) already exists" % self.projdir)
 
     @staticmethod
     def download(link, file_name):
@@ -58,17 +94,17 @@ class VM(object):
             ".vagabond/boxes/",
         )
         if args.loc.startswith("http://") and args.loc.endswith(".box"):
-            # TODO Add progress bar indicator:  http://stackoverflow.com/questions/15644964/python-progress-bar-and-downloads   
+            # the vagabond project directory typically ~/.vagrant/boxes/args.name
+            projdir = os.path.normpath(os.path.join(boxdir, args.name))
             try:
-                projdir = os.path.normpath(os.makedirs(os.path.join(boxdir, args.name)))
+                os.makedirs(projdir)
             except OSError as e:
-                if errno.errorcode[e.errno] == 'EEXIST':
-                    projdir = os.path.normpath(os.path.join(boxdir, args.name))
-                else:
-                    raise 
-            filename = os.path.join(projdir, args.name)
+                if errno.errorcode[e.errno] != 'EEXIST':
+                    raise
 
-            r = VM.download(args.loc, filename)
+            download_fname = os.path.join(projdir, args.name)
+
+            r = VM.download(args.loc, download_fname)
             if r.status_code == 200:        
                 # save current location
                 hold = os.getcwd() 
@@ -76,12 +112,16 @@ class VM(object):
                 os.chdir(projdir)
     
                 # uncompress the downloaded files
-                subprocess.check_output(['tar', 'xvfz', filename])
+                subprocess.check_output(['tar', 'xvfz', download_fname])
 
+                # Remove any vagrant related files.
+                for _file in glob.glob("Vagrant*"):
+                    os.remove(_file)
+                
                 # Now remove the downloaded file
-                # TODO:  Delete the Vagrant file that is downloaded as well..if it's a *.box format
-                os.unlink(filename)
-
+                os.remove(download_fname) 
+                
+                # return to previous directory
                 os.chdir(hold)
             else:
                 raise ValueError("status_code: " + r.status_code)
@@ -122,7 +162,7 @@ class VM(object):
     def _check_vbox_errors(self, err_log, args=None):
         """
             Check for errors and raise VBoxManageError
-            Compiles a list of VBoxManage: error: 
+            *Compiles a list of VBoxManage: error: 
         """
         if not os.path.isfile(err_log):
             return None
@@ -352,9 +392,16 @@ class VM(object):
         L.info("unregistervm: " + self.vm_name)
 
         try:
-            self.vbox('VBoxManage', 'unregistervm', vm_name)
+            self.vbox('VBoxManage', 'unregistervm', vm_name, "--delete")
         except VBoxManageError as e:
             if "Could not find a registered machine named '%s'"%self.vm_name in e:
                 pass
+
+        
+        # Now remove the Vagabond Project directory
+        if os.path.isdir(self.projdir):
+            L.info("rmdir(%s)" % self.projdir)
+            os.rmdir(self.projdir)
+
 
 
