@@ -157,21 +157,18 @@ if __name__ == '__main__' and __package__ is None:
             VM.show_valid_os_types()
     elif args.subparser_name == 'up':
         # Read the Vagrant file in the current directory
-        vm = VM( options=readVagabond(), args=args )
+        vm = VM( options=readVagabond(), args=args)
         vm.up()
     elif args.subparser_name == 'destroy':
-        vm = VM( options=readVagabond(), args=args, destroy=True )
+        vm = VM( options=readVagabond(), args=args)
+        vm.halt()
         vm.unregistervm()
     elif args.subparser_name == 'package':
         raise Exception("You haven't implemented the package subparser yet") 
        
     elif args.subparser_name == 'halt':
-        vm = VM( options=readVagabond(), args=args, halt=True )
-        try:
-            print args
-            vm.vbox('VBoxManage', 'controlvm', vm.config['vmname'], 'savestate')
-        except VBoxManageError as e:
-            raise e
+        vm = VM( options=readVagabond(), args=args)
+        vm.halt()
             
     elif args.subparser_name == 'box':
         if args.box_subparser_name == 'add':

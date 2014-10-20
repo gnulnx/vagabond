@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os
+import time
 import glob, os
 import errno
 import requests
@@ -37,14 +38,7 @@ class VM(object):
           
         self.vm_name = self.config.get('vmname', "ubuntu-64bit")
        
-        #if kwargs.get('destroy') or kwargs.get("halt"):
-        #    self._set_project_dir()
-        #else:
-
-        try:
-            self._create_project_dir()
-        except VagabondError as e:
-            self._set_project_dir()
+        self._create_project_dir()
 
     def _set_project_dir(self):
         # boxdir ~./vagabond/boxes
@@ -62,13 +56,12 @@ class VM(object):
         """
         self._set_project_dir()
 
+        L.info("Checking for project directory")
         if not os.path.isdir(self.projdir):
+            L.info("Creating project directory %s"%self.projdir)
             os.makedirs(self.projdir)
         else:
-            
-            if not self.args.__dict__.get('force', False):
-                L.error("Project directory(%s) already exists.  Use --force to ignore this warning" % self.projdir)
-                raise VagabondError("Project dir(%s) already exists" % self.projdir)
+            L.warn("Project directory(%s) already exists."%self.projdir)
 
     @staticmethod
     def download(link, file_name):
@@ -244,7 +237,8 @@ class VM(object):
                         os.unlink(out)
                         try:
                             L.info("Force=True, Rerunning")
-                            self.vbox('VBoxManage', 'createhd','--filename', '%s.vdi'%self.vm_name,'--size', size,)
+                            vdi_path = os.path.join(self.projdir, self.vm_name)
+                            self.vbox('VBoxManage', 'createhd','--filename', '%s.vdi'%vdi_path,'--size', size,)
                         except VBoxManageError as e:
                             L.error(str(e))
                             sys.exit(0)
@@ -381,7 +375,20 @@ class VM(object):
             L.error(str(e))
             sys.exit(0)
 
-    def unregistervm(self, vm_name=None):
+    def halt(self, vm_name=None):
+        try:
+            self.vbox('VBoxManage', 'controlvm', self.config['vmname'], 'savestate')
+        except VBoxManageError as e:
+            if 'Machine in invalid state 1 -- powered off' in str(e):
+                L.warn('Machine in invalid state 1 -- powered off')
+            elif 'Machine in invalid state 2 -- saved' in str(e):
+                L.warn('Machine in invalid state 2 -- saved')
+            elif "Could not find a registered machine named '%s'"%self.vm_name:
+                L.warn("Could not find a registered machine named '%s'"%self.vm_name)
+            else:
+                raise
+    
+    def unregistervm(self, vm_name=None, count=0):
         """
             Unregister a vm.  name can be the UUID or the name of the vm
             NOTE:  If you pass it a name it will recusively delete all boxes with that name
@@ -394,13 +401,23 @@ class VM(object):
         try:
             self.vbox('VBoxManage', 'unregistervm', vm_name, "--delete")
         except VBoxManageError as e:
-            if "Could not find a registered machine named '%s'"%self.vm_name in e:
+            if "Could not find a registered machine named '%s'"%self.vm_name in str(e):
                 pass
+            elif "Cannot unregister the machine '%s' while it is locked"%self.vm_name in str(e):
+                L.error("Cannot unregister the machine '%s' while it is locked"%self.vm_name)
+                L.info("Trying again in 1 second")
+                time.sleep(1)
+                if count < 10:
+                    self.unregistervm(vm_name=vm_name, count=count+1)
+                else:
+                    raise e
+            else:
+                raise
 
         
         # Now remove the Vagabond Project directory
         if os.path.isdir(self.projdir):
-            L.info("rmdir(%s)" % self.projdir)
+            L.info("Removing the project directory(%s)" % self.projdir)
             os.rmdir(self.projdir)
 
 
