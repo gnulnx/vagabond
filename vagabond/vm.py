@@ -94,13 +94,26 @@ class VM(object):
             1)  Create a direction (args.name)
             2)  Use UPDATE_ME template to create initial Vagabond.py file
         """
-        self.vm_name = self.kwargs.get('name')
+        """{
+            'subparser_name': 'init', 
+            'force': False, 
+            'box-name': 'hashicopy/precise64', 
+            'color': None, 
+            'media': None, 
+            'TEST': False, 
+            'project-name':'deathstar'
+        }"""
+
+        self.vm_name = self.kwargs.get('project-name')
         L.info("self.vm_name: %s", self.vm_name)
+
+        L.info("self.kwargs: ", self.kwargs)
 
         force = self.kwargs.get('force')
         if force:
             L.info("--force option issued")
 
+        # Really this should be the project_dir and not machine_dir... or should it?
         # Try to create the machine directory...
         # This is the users project direct.
         self.machine_dir = os.path.abspath(self.vm_name)     
@@ -120,23 +133,17 @@ class VM(object):
         self._create_project_dir()
 
         media = self.kwargs.get('media')
+        box_name = self.kwargs.get('box_name')
 
-        # TODO This is for debug only
-        if not media:
-            media="/Users/jfurr/Downloads/ubuntu-14.04.1-server-i386.iso"
 
-        #if "~" in args.media:
-        media = os.path.normpath( os.path.expanduser(media) )
-
-        # Check to see if --media option was present 
-        iso=None
-        vdi=None
-        vmdx=None
-        if media:
-            iso = media if media.endswith(".iso") else None
-            vdi = media if media.endswith(".vdi") else None
-            vmdx = media if media.endswith(".vmdx") else None
-
+        # Example iso /Users/jfurr/Downloads/ubuntu-14.04.1-server-i386.iso
+        if box_name.endswith(".iso"):
+            box=None,
+            iso = box_name
+        else:   
+            box = box_name
+            iso = None
+        
         
         # Now we need to use a templating system to copy our initial Vagabond.py file into the project directory 
         from vagabond.templates import VagabondTemplate
@@ -145,9 +152,8 @@ class VM(object):
             f.write( VagabondTemplate.render({
                 'version':API_VERSION,
                 'vmname':self.vm_name,
+                'box':box,
                 'iso':iso,
-                'vdi':vdi,
-                'vmdx':vmdx,
             }))
 
 

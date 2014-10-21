@@ -18,7 +18,8 @@ def getArgs():
 
     # Need to implement these
     init_parser = subparser.add_parser('init', help="Start a Vagabond Project")
-    init_parser.add_argument('name', help="The name of the project")
+    init_parser.add_argument('project-name', help="The location of the project")
+    init_parser.add_argument('-b', '--box-name', action="store", default="hashicopy/precise64", help="Name of the box to use for the project") 
     init_parser.add_argument('-f', '--force', action="store_true", help="Overwrite existing Vagabond.py file")
     init_parser.add_argument('-m', '--media', action="store", help="*.iso, url to *.iso")
 

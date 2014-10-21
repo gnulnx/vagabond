@@ -2,7 +2,12 @@ VAGABOND_API_VERSION={{version}}
 
 config = {
     'vm': {
-        'box':'addgene_base',
+        # The name of the vagabond/vagrant box to use
+        'box':{% if box %}'{{box}}'{% else %}None{% endif %},
+
+        # Import the box from a local iso image
+        'iso':{% if iso %}'{{iso}}'{% else %}None{% endif %},
+
         'hostname':'jfvm1'
     }
 
@@ -15,18 +20,6 @@ config = {
     # Select OS type.  To see types run vagabond list --ostypes
     'ostype':'Ubuntu_64',
 
-    'box':{
-        'local':None,
-        'url':None
-    }   
-
-    # You must set 1 media type.  Make sure the other options are set to None
-    'media':{
-        'box':{% if box %}'{{box}}'{% else %}None{% endif %},
-        'iso':{% if iso %}'{{iso}}'{% else %}None{% endif %},
-        'vdi':{% if vdi %}'{{vdi}}'{% else %}None{% endif %},
-        'vmdx':{% if vmdx %}'{{vmdx}}'{% else %}None{% endif %},
-    },
 
     # The settings for the vm hard drie.
     'hdd':{
