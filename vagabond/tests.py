@@ -1,11 +1,17 @@
 import unittest
+import os
 from vm import VM
 
+# To run the tests run the following commands in PROJECT_ROOT
+# coverage run -m unittest discover
+# coverage report -m --include=vagabond/
+# OR: 
+# coverage run -m unittest discover ; coverage report -m --include=vagabond/*
 class TestSequenceFunctions(unittest.TestCase):
 
     def setUp(self):
         self.TEST=True
-        self.VAGRANT_PROJECT_ROOT='/Users/jfurr/.vagabond/'
+        self.VAGRANT_PROJECT_ROOT='.vagabond/'
         self.kwargs = {
             'TEST': self.TEST,
         }
@@ -15,14 +21,19 @@ class TestSequenceFunctions(unittest.TestCase):
         self.kwargs.update({
             'subparser_name': 'box', 
             'box_subparser_name': 'add',
-            'name': 'john', 
+            'name': 'ubuntu_1404', 
             'loc': 'http://hashicorp-files.vagrantup.com/precise32.box', 
-            'color': None, # Don't think this is needed
         })
 
-        print self.kwargs
-
         vm = VM(**self.kwargs)
+
+        self.assertEqual(vm.RET['STATUS'], 'SUCCESS')
+
+        # Test that all the typicaly vagrant files are there.
+        VAGABOND_PROJECT_ROOT = vm.RET['VAGABOND_PROJECT_ROOT']
+        for _file in ['box-disk1.vmdk', 'box.ovf', 'Vagrantfile']:
+            vfile = os.path.join(VAGABOND_PROJECT_ROOT, _file)
+            self.assertTrue(os.path.isfile(vfile))
 
         """
         x box-disk1.vmdk

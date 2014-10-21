@@ -60,19 +60,31 @@ class VM(object):
         return
 
     def setup_proj(self):
-        self.TEST = self.kwargs.get('TEST')
-        self.VAGRANTBASE=os.path.expanduser("~")
-        if self.TEST:
-            self.VAGRANTBASE=os.path.abspath(".")
+        """
+            Takes care of setting up vagabond for the first time.
+            A single project directory is created in the users home directory with the following structure
+            ~/.vagabond/boxes/
 
-        self.VAGRANT_PROJECT_ROOT=os.path.join(os.path.expanduser("~"), ".vagabond/",)
+            Inside these boxes will sub subdirectories for each imported box.  This method also 
+            initializes a few instance variables:
+            
+            VAGABOND_ROOT:  typically ~/.vagabond
+            VAGABOND_BOX_ROOT:  VAGABOND_PROJECT_ROOT/boxes
+        """
+        self.TEST = self.kwargs.get('TEST')
+        if self.TEST:
+            self.VAGABOND_ROOT=os.path.join(os.path.abspath("."), ".vagabond/")
+        else:
+            self.VAGABOND_ROOT=os.path.join(os.path.expanduser("~"), ".vagabond/")
+
+        L.info("TEST(%s) - VAGABOND_ROOT(%s)", self.TEST, self.VAGABOND_ROOT)
 
         try:
-            self.BOXDIR = os.path.join(self.VAGRANT_PROJECT_ROOT, "boxes")
-            os.makedirs(self.BOXDIR)
+            self.VAGABOND_BOX_ROOT = os.path.join(self.VAGABOND_ROOT, "boxes")
+            os.makedirs(self.VAGABOND_BOX_ROOT)
         except OSError as e:
             if errno.errorcode[e.errno] == 'EEXIST':
-                L.debug("%s already exists", self.BOXDIR)
+                L.debug("%s already exists", self.VAGABOND_BOX_ROOT)
             else:
                 raise
 
@@ -215,24 +227,26 @@ class VM(object):
         return r
 
     def addbox(self):
-        #self.VAGRANT_PROJECT_ROOT = self.kwargs['VAGRANT_PROJECT_ROOT']
-        #self.BOXDIR = os.path.join(self.VAGRANT_PROJECT_ROOT, "boxes")
+        self.RET = {}
         self.loc = self.kwargs['loc']
         self.box_name = self.kwargs['name']
-        L.warn(self.loc)
+        L.info("Adding box %s",self.loc)
 
-        #if args.loc.startswith("http://") and args.loc.endswith(".box"):
+        # First make sure the box directory is present
+        self.VAGABOND_PROJECT_ROOT = os.path.normpath(os.path.join(self.VAGABOND_BOX_ROOT, self.box_name))
+        try:
+            os.makedirs(self.VAGABOND_PROJECT_ROOT)
+        except OSError as e:
+            if errno.errorcode[e.errno] != 'EEXIST':
+                L.warn("Box directory (%s) already present", self.VAGABOND_PROJECT_ROOT)
+                raise
+
+        L.info("VAGABOND_PROJECT_ROOT: %s", self.VAGABOND_PROJECT_ROOT)
+            
+        # Check if Vagrant *.box
         if self.loc.startswith("http://") and self.loc.endswith(".box"):
-            # the vagabond project directory typically ~/.vagrant/boxes/args.name
-            projdir = os.path.normpath(os.path.join(self.BOXDIR, self.box_name))
-            try:
-                os.makedirs(projdir)
-            except OSError as e:
-                if errno.errorcode[e.errno] != 'EEXIST':
-                    L.warn("Box directory (%s) already present", projdir)
-                    raise
 
-            download_fname = os.path.join(projdir, self.box_name)
+            download_fname = os.path.join(self.VAGABOND_PROJECT_ROOT, self.box_name)
             L.info("download_fname: %s", download_fname)
 
             r = self.download(self.loc, download_fname)
@@ -240,23 +254,24 @@ class VM(object):
                 # save current location
                 hold = os.getcwd() 
                 
-                os.chdir(projdir)
+                os.chdir(self.VAGABOND_PROJECT_ROOT)
     
                 # uncompress the downloaded files
                 subprocess.check_output(['tar', 'xvfz', download_fname])
 
-                # Remove any vagrant related files.
-                for _file in glob.glob("Vagrant*"):
-                    os.remove(_file)
-                
                 # Now remove the downloaded file
+                L.error("You commented out the download_fname deletion")
                 os.remove(download_fname) 
                 
                 # return to previous directory
                 os.chdir(hold)
-            else:
-                raise ValueError("status_code: " + r.status_code)
-    
+
+        self.RET = {
+            'STATUS':'SUCCESS',
+            'VAGABOND_PROJECT_ROOT':self.VAGABOND_PROJECT_ROOT,
+        } 
+
+
     def listvms(self):
         out = self.vbox('VBoxManage', 'list', 'vms')
 

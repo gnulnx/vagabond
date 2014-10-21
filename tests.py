@@ -1,5 +1,8 @@
 import unittest
 
+# To run the tests run the following commands
+# coverage run -m unittest discover
+# coverage report -m --include=vagabond/*
 if __name__ == '__main__':
 
     # use the default shared TestLoader instance

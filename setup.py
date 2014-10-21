@@ -101,4 +101,5 @@ setup(
         "clint",
         "logutils",
     ],
+    test_suite="tests"
 )

@@ -1,6 +1,11 @@
 VAGABOND_API_VERSION={{version}}
 
 config = {
+    'vm': {
+        'box':'addgene_base',
+        'hostname':'jfvm1'
+    }
+
     # Typically set to the same name as the directory the project was created in
     'vmname':'{{vmname}}',
 
@@ -9,6 +14,11 @@ config = {
 
     # Select OS type.  To see types run vagabond list --ostypes
     'ostype':'Ubuntu_64',
+
+    'box':{
+        'local':None,
+        'url':None
+    }   
 
     # You must set 1 media type.  Make sure the other options are set to None
     'media':{
