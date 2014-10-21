@@ -8,10 +8,12 @@ import logging
 """
     This is the vagabond command line utility
 """
-
+TEST=False
 
 def getArgs():
     parser = argparse.ArgumentParser(description="Build and Manage a VirtualBox machine using python")
+    parser.add_argument('--color', action='store', choices=['on', 'off'], help="Color output on/off.  Default is on")
+
     subparser = parser.add_subparsers(help="Sub processor help", dest="subparser_name")
 
     # Need to implement these
@@ -46,78 +48,23 @@ def getArgs():
     list_parser.add_argument('--ostypes', action="store_true", help="Print a list of valid ostypes and exit")
     return parser.parse_args()
 
-    
 
-def readVagabond():
-    # Check for Vagabond file in local directory
-    vfile = os.path.join(os.getcwd(), "Vagabond.py")
-    if not os.path.isfile(vfile):
-        raise IOError("You must have a Vagabond file in your current directory")
-
-    # Add current directory to sys path...
-    # so that when we load the Vagabond module it loads the users module
-    sys.path.insert(0, os.getcwd())
-    import Vagabond
-
-    #TODO Need to do a verify/check on the imported Vagabond file.
-
-    return Vagabond
-
-def setup_project():
-    """
-        Set up the ~/.vagabond directory
-    """ 
-    vagabond_dirs = os.path.join(
-        os.path.expanduser("~"),
-        ".vagabond/boxes/",
-    )
-    try: 
-        os.makedirs(vagabond_dirs)
-    except OSError as e:
-        if errno.errorcode[e.errno] == 'EEXIST':
-            pass
-        else:
-            raise
-    
 if __name__ == '__main__' and __package__ is None:
     from os import sys, path
     sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-    from vagabond.vm import VM, VBoxManageError
+    from vagabond.vm import VM
+
+    # Do you need the logger in this module?
     from vagabond.logger.logger import get_logger
-    L = get_logger()
+    L=get_logger()
 
-    setup_project()
-
+    # Get the command line arguments
     args = getArgs()
-    L.info("args: %s", args)
-    vm = VM(**args.__dict__)
-    raise Exception("You should be done")
-    if args.subparser_name == 'init':
-        # Look into how vagrant does this
-        # vagrant box add lucid32 http://files.vagrantup.com/lucid32.box
-        VM.init(args)
-        #init(args)
-    elif args.subparser_name == 'list':
-        if args.ostypes:
-            VM.show_valid_os_types()
-    elif args.subparser_name == 'up':
-        # Read the Vagrant file in the current directory
-        vm = VM( options=readVagabond(), args=args)
-        vm.up()
-    elif args.subparser_name == 'halt':
-        vm = VM( options=readVagabond(), args=args)
-        vm.halt()
-    elif args.subparser_name == 'destroy':
-        vm = VM( options=readVagabond(), args=args)
-        vm.halt()
-        vm.unregistervm()
-    elif args.subparser_name == 'package':
-        raise Exception("You haven't implemented the package subparser yet") 
-       
-            
-    elif args.subparser_name == 'box':
-        if args.box_subparser_name == 'add':
-            VM.addbox(args)
-            L.info("Box added:" + args.name)
 
+    L = get_logger()
+    kwargs = dict(args.__dict__)
+    kwargs.update({'TEST':TEST,})
 
+    vm = VM(**kwargs)
+    
+    

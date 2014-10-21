@@ -4,7 +4,7 @@ from setuptools import setup
 from setuptools import find_packages
 
 # TODO This isn't working
-os.system("pandoc --from=markdown --to=rst --output=README.rst README.md")
+#os.system("pandoc --from=markdown --to=rst --output=README.rst README.md")
 
 
 def read(*paths):

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os
+import shutil
 import time
 import glob, os
 import errno
@@ -24,54 +25,84 @@ class VagabondError(ValueError):
     """ A generic Vagabond specific error """
     pass
 
+
 class VM(object):
     def __init__(self, *args, **kwargs):
         self.kwargs = kwargs
-
-        if self.kwargs.get('subparser_name') == 'init':
-            self.init(self.kwargs)
-            raise Exception("Init all day my man")
-
-        print "Yep: ", args
-        raw_input()
-        args = kwargs.get('args')
-        if not args:
-            L.critical("can not proceed with empty args list")
-            sys.exit(0)
-
- 
-        L.info("args: %s", args)
-        L.info("kwargs: %s", kwargs)
-        sys.exit(0)
-        self.config = options.config
-        self.args = kwargs.get('args')
-          
-        self.vm_name = self.config.get('vmname', "ubuntu-64bit")
-
-        if self.args.subparser_name == 'init':
-            # This process needs to do more work.  It needs to initialize the project directory for one.
-            self._create_project_dir()
-        else:
-            self._set_project_dir()
-            if not os.path.isdir(self.projdir):
-                if self.args.subparser_name == 'up':
-                    L.critical("(%s) is not a directory"%self.projdir)
-                    raise ValueError("(%s) is not a directory"%self.projdir)
-                else:
-                    L.warn("(%s) is not a directory"%self.projdir)
+   
+        self.setup_proj() 
         
 
-    #TODO This isn't used yet
-    def init(self, args):
+        L.debug("VM.__init__  kwargs(%s): ", self.kwargs)
+        action = self.kwargs.get('subparser_name')
+
+        if action == 'init':
+            self.init()
+        elif action == 'up':
+            self.up()
+        elif action == 'halt':
+            self.halt()
+        elif action == 'destroy':
+            self.halt()
+            self.unregistervm()
+        elif action == 'box':
+            # I kinda feel like this sub logix should be factored out...Box class maybe?
+            subaction = self.kwargs.get('box_subparser_name')
+            if subaction == 'add':
+                self.addbox()
+            else:
+                L.debug(self.kwargs)
+                raise Exception("No sub action found")
+        else:
+            L.critical("action (%s) not defined")
+            raise VagabondError("action (%s) not defined")
+        
+        return
+
+    def setup_proj(self):
+        self.TEST = self.kwargs.get('TEST')
+        self.VAGRANTBASE=os.path.expanduser("~")
+        if self.TEST:
+            self.VAGRANTBASE=os.path.abspath(".")
+
+        self.VAGRANT_PROJECT_ROOT=os.path.join(os.path.expanduser("~"), ".vagabond/",)
+
+        try:
+            self.BOXDIR = os.path.join(self.VAGRANT_PROJECT_ROOT, "boxes")
+            os.makedirs(self.BOXDIR)
+        except OSError as e:
+            if errno.errorcode[e.errno] == 'EEXIST':
+                L.debug("%s already exists", self.BOXDIR)
+            else:
+                raise
+
+    def init(self):
         """
             Initialize a project by:
             1)  Create a direction (args.name)
             2)  Use UPDATE_ME template to create initial Vagabond.py file
         """
-      
-        # NOTE:  This wrong.  the projdir should be something like ~/.vagabond/boxes/project_name
         self.vm_name = self.kwargs.get('name')
         L.info("self.vm_name: %s", self.vm_name)
+
+        force = self.kwargs.get('force')
+        if force:
+            L.info("--force option issued")
+
+        # Try to create the machine directory...
+        # This is the users project direct.
+        self.machine_dir = os.path.abspath(self.vm_name)     
+        if not os.path.isdir(self.machine_dir):
+            os.mkdir(self.machine_dir)
+        else:
+            if force:
+                L.warn("Removing %s and all contents because you passed --force", self.machine_dir)
+                shutil.rmtree(self.machine_dir)
+                os.mkdir(self.machine_dir)
+            else:
+                L.critical("Directory (%s) already exists.  --force to remove and recreate", self.vm_name)
+                sys.exit(0)
+                
          
         # Create the project directory    
         self._create_project_dir()
@@ -134,6 +165,7 @@ class VM(object):
         # projdir ~/.vagabond/boxes/self.vm_name
         self.projdir = os.path.normpath(os.path.join(boxdir, self.vm_name))
 
+    # Rename to something like _create_vagabond_box
     def _create_project_dir(self, count=0):
         """
             Create the project directory.  
@@ -159,8 +191,6 @@ class VM(object):
                 
             if self.kwargs['force']:
                 L.warn("--force Removing project directry %s", self.projdir)
-                import shutil
-
                 shutil.rmtree(os.path.abspath(self.projdir))
                 return self._create_project_dir(count=count+1)
             else:
@@ -168,8 +198,7 @@ class VM(object):
                 sys.exit(0)
 
 
-    @staticmethod
-    def download(link, file_name):
+    def download(self, link, file_name):
         """
             Uses the clint library to show a download progress bar for downloads
         """
@@ -185,24 +214,28 @@ class VM(object):
 
         return r
 
-    @staticmethod
-    def addbox(args):
-        boxdir = os.path.join(
-            os.path.expanduser("~"),
-            ".vagabond/boxes/",
-        )
-        if args.loc.startswith("http://") and args.loc.endswith(".box"):
+    def addbox(self):
+        #self.VAGRANT_PROJECT_ROOT = self.kwargs['VAGRANT_PROJECT_ROOT']
+        #self.BOXDIR = os.path.join(self.VAGRANT_PROJECT_ROOT, "boxes")
+        self.loc = self.kwargs['loc']
+        self.box_name = self.kwargs['name']
+        L.warn(self.loc)
+
+        #if args.loc.startswith("http://") and args.loc.endswith(".box"):
+        if self.loc.startswith("http://") and self.loc.endswith(".box"):
             # the vagabond project directory typically ~/.vagrant/boxes/args.name
-            projdir = os.path.normpath(os.path.join(boxdir, args.name))
+            projdir = os.path.normpath(os.path.join(self.BOXDIR, self.box_name))
             try:
                 os.makedirs(projdir)
             except OSError as e:
                 if errno.errorcode[e.errno] != 'EEXIST':
+                    L.warn("Box directory (%s) already present", projdir)
                     raise
 
-            download_fname = os.path.join(projdir, args.name)
+            download_fname = os.path.join(projdir, self.box_name)
+            L.info("download_fname: %s", download_fname)
 
-            r = VM.download(args.loc, download_fname)
+            r = self.download(self.loc, download_fname)
             if r.status_code == 200:        
                 # save current location
                 hold = os.getcwd() 
@@ -241,7 +274,11 @@ class VM(object):
         if not os.path.isfile(_file):
             L.error("No Vagabond.py file found.  Is this is this a vagabond project?")
             sys.exit(0)
-      
+ 
+        VAGABOND = self.readVagabond() 
+        self.config = VAGABOND.config
+        self.vm_name = self.config.get('vmname', 'vagabond')
+        
         media = self.config.get('media')
         if not media:
             raise ValueError("No media specified in Vagabond.py file")
@@ -419,9 +456,9 @@ class VM(object):
         except KeyError:
             size = '32768'
 
-
+        
         # This is a --hard-force switch....dirty, but works for cleaning it all up
-        if self.args.hard_force:
+        if self.kwargs.get('hard_force'):
             self.unregistervm()
 
         self.createhd()
@@ -482,8 +519,13 @@ class VM(object):
             sys.exit(0)
 
     def halt(self, vm_name=None):
+        # This block is repeated in self.up()
+        VAGABOND = self.readVagabond()
+        self.config = VAGABOND.config
+        self.vm_name = self.config.get('vmname', 'vagabond')
+
         try:
-            self.vbox('VBoxManage', 'controlvm', self.config['vmname'], 'savestate')
+            self.vbox('VBoxManage', 'controlvm', self.vm_name, 'savestate')
         except VBoxManageError as e:
             if 'Machine in invalid state 1 -- powered off' in str(e):
                 L.warn('Machine in invalid state 1 -- powered off')
@@ -494,16 +536,21 @@ class VM(object):
             else:
                 raise
     
-    def unregistervm(self, vm_name=None, count=0):
+    def unregistervm(self, count=0):
         """
             Unregister a vm.  name can be the UUID or the name of the vm
             NOTE:  If you pass it a name it will recusively delete all boxes with that name
         """
-        if not vm_name:
-            vm_name = self.vm_name
+        if not self.vm_name:
+            # Third time this block is repeated
+            VAGABOND = self.readVagabond()
+            self.config = VAGABOND.config
+            self.vm_name = self.config.get('vmname', 'vagabond')
+
+        self._set_project_dir()
 
         try:
-            self.vbox('VBoxManage', 'unregistervm', vm_name, "--delete")
+            self.vbox('VBoxManage', 'unregistervm', self.vm_name, "--delete")
         except VBoxManageError as e:
             if "Could not find a registered machine named '%s'"%self.vm_name in str(e):
                 pass
@@ -512,7 +559,7 @@ class VM(object):
                 L.info("Trying again in 1 second")
                 time.sleep(1)
                 if count < 10:
-                    self.unregistervm(vm_name=vm_name, count=count+1)
+                    self.unregistervm(count=count+1)
                 else:
                     raise e
             else:
