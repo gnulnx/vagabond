@@ -92,21 +92,13 @@ class VM(object):
         """
             Initialize a project by:
             1)  Create a direction (args.name)
-            2)  Use UPDATE_ME template to create initial Vagabond.py file
+            2)  Use template to create initial Vagabond.py file
         """
-        """{
-            'subparser_name': 'init', 
-            'force': False, 
-            'box-name': 'hashicopy/precise64', 
-            'color': None, 
-            'media': None, 
-            'TEST': False, 
-            'project-name':'deathstar'
-        }"""
 
         self.vm_name = self.kwargs.get('project-name')
-        self.PROJECT_DIR = os.path.abspath(self.vm_name)     
         L.info("self.vm_name: %s", self.vm_name)
+
+        self.PROJECT_DIR = os.path.abspath(self.vm_name)     
         L.info("PROJECT_DIR: %s", self.PROJECT_DIR)
 
         force = self.kwargs.get('force')
@@ -126,18 +118,15 @@ class VM(object):
                     raise VagabondError("Directory (%s) already exists.  --force to remove and recreate", self.vm_name)
                 sys.exit(0)
                 
-         
-        # TODO This is just a bootstrapping with vagrant until we have out own machines
-        box_name = self.kwargs.get('box_name', 'hashicopy/precise64')
 
-        # Example iso /Users/jfurr/Downloads/ubuntu-14.04.1-server-i386.iso
-        if box_name.endswith(".iso"):
-            box=None,
-            iso = box_name
-        else:   
-            box = box_name
-            iso = None
-        
+                
+        iso = self.kwargs.get('iso')
+        box = self.kwargs.get('box', 'hashicopy/precise64')
+
+        if iso:
+            box = None
+            if not iso.endswith(".iso"):
+                L.warn("ISO (%s) does not have a .iso extension")
         
         # Now we need to use a templating system to copy our initial Vagabond.py file into the project directory 
         from vagabond.templates import VagabondTemplate
@@ -350,6 +339,7 @@ class VM(object):
 
     def createhd(self):
         try:
+            # TODO Move this to a better spot in config...config['vm']['hdd'] perhaps?
             size = self.config['hdd']['size']
         except KeyError:
             size = '32768'

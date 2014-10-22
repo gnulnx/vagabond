@@ -2,11 +2,15 @@ VAGABOND_API_VERSION={{version}}
 
 config = {
     'vm': {
+        {% if box -%}
         # The name of the vagabond/vagrant box to use
-        'box':{% if box %}'{{box}}'{% else %}None{% endif %},
+        'box':'{{box}}',
+        {% endif -%}
 
+        {%- if iso -%}
         # Import the box from a local iso image
-        'iso':{% if iso %}'{{iso}}'{% else %}None{% endif %},
+        'iso':'{{iso}}',
+        {%- endif -%}
 
         'hostname':{% if hostname %}'{{hostname}}'{% else %}'vagabond_vm'{%endif%},
     },
@@ -22,6 +26,7 @@ config = {
 
 
     # The settings for the vm hard drie.
+    # Would this make more since in the vm section?
     'hdd':{
         'size':'32768'
     },

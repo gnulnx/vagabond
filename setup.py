@@ -100,6 +100,7 @@ setup(
         "requests",
         "clint",
         "logutils",
+        "Jinja2==2.7.3"
     ],
     test_suite="tests"
 )

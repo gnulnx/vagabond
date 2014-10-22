@@ -66,7 +66,7 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertFalse(os.path.isdir(project_path))
 
 
-    unittest.skip("showing class skipping")
+    @unittest.skip("showing class skipping")
     def test_add_vagrant_box(self):
         self.kwargs.update({
             'subparser_name': 'box', 
