@@ -270,16 +270,6 @@ class VM(object):
             self.iso_up()
         else:
             raise Exception("media type (%s) not supported", self.media)
-        """
-        if self.hostname in self.listvms():
-            self.startvm()
-        elif media.endswith('iso'):
-            self.iso_up()
-        elif media.get('vmdx'):
-            raise Exception("vmdx media type not supported yet")
-        elif media.get('vdi'):
-            raise Exception("vdi media type not supported yet")
-        """
     
     def _check_vbox_errors(self, err_log, args=None):
         """
@@ -514,8 +504,10 @@ class VM(object):
         try:
             self.vbox('VBoxManage', 'startvm', self.hostname)
         except VBoxManageError as e:
-            L.error(str(e))
-            sys.exit(0)
+            if "The machine 'jane' is already locked by a session (or being locked or unlocked)" in str(e):
+                L.warning("Machine already running")
+            else:
+                raise
 
     def halt(self, vm_name=None):
         # This block is repeated in self.up()
