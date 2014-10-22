@@ -95,15 +95,13 @@ class VM(object):
             2)  Use template to create initial Vagabond.py file
         """
 
-        self.vm_name = self.kwargs.get('project-name')
-        L.info("self.vm_name: %s", self.vm_name)
+        self.hostname = self.kwargs.get('project-name')
+        L.info("self.hostname: %s", self.hostname)
 
-        self.PROJECT_DIR = os.path.abspath(self.vm_name)     
+        self.PROJECT_DIR = os.path.abspath(self.hostname)     
         L.info("PROJECT_DIR: %s", self.PROJECT_DIR)
 
         force = self.kwargs.get('force')
-        if force:
-            L.info("--force option issued")
 
         if not os.path.isdir(self.PROJECT_DIR):
             os.mkdir(self.PROJECT_DIR)
@@ -113,14 +111,13 @@ class VM(object):
                 shutil.rmtree(self.PROJECT_DIR)
                 os.mkdir(self.PROJECT_DIR)
             else:
-                L.critical("Directory (%s) already exists.  --force to remove and recreate", self.vm_name)
+                L.critical("Directory (%s) already exists.  --force to remove and recreate", self.hostname)
                 if self.TEST:
-                    raise VagabondError("Directory (%s) already exists.  --force to remove and recreate", self.vm_name)
+                    raise VagabondError("Directory (%s) already exists.  --force to remove and recreate", self.hostname)
                 sys.exit(0)
                 
-
                 
-        iso = self.kwargs.get('iso')
+        iso = os.path.abspath(os.path.expanduser(self.kwargs.get('iso')))
         box = self.kwargs.get('box', 'hashicopy/precise64')
 
         if iso:
@@ -128,39 +125,19 @@ class VM(object):
             if not iso.endswith(".iso"):
                 L.warn("ISO (%s) does not have a .iso extension")
         
-        # Now we need to use a templating system to copy our initial Vagabond.py file into the project directory 
+        # Import the VagabondTemplate and apply our context to it.
         from vagabond.templates import VagabondTemplate
-        vfile = os.path.join( os.path.abspath(self.vm_name), "Vagabond.py") 
+        vfile = os.path.join( os.path.abspath(self.hostname), "Vagabond.py") 
         with open(vfile, 'w') as f:
             f.write( VagabondTemplate.render({
                 'version':API_VERSION,
-                'vmname':self.vm_name,
+                'hostname':self.hostname,
                 'box':box,
                 'iso':iso,
             }))
 
+        # TODO:  Do we really want a retun status code type thing?
         self.RET = {'STATUS':'SUCCESS'}
-
-
-    def readVagabond(self):
-        path = os.getcwd()
-        # Check for Vagabond file in local directory
-        vfile = os.path.join(path, "Vagabond.py")
-
-        if not os.path.isfile(vfile):
-            raise IOError("You must have a Vagabond file in your current directory")
-
-        # Add current directory to sys path...
-        # so that when we load the Vagabond module it loads the users module
-        sys.path.insert(0, path)
-
-        import Vagabond
-        self.config = Vagabond.config
-        self.config_version = Vagabond.VAGABOND_API_VERSION
-
-        #TODO Need to do a verify/check on the imported Vagabond file.
-
-        return Vagabond
 
 
     def _set_project_dir(self):
@@ -170,8 +147,8 @@ class VM(object):
             ".vagabond/boxes/",
         )
 
-        # projdir ~/.vagabond/boxes/self.vm_name
-        self.projdir = os.path.normpath(os.path.join(boxdir, self.vm_name))
+        # projdir ~/.vagabond/boxes/self.hostname
+        self.projdir = os.path.normpath(os.path.join(boxdir, self.hostname))
 
 
     def download(self, link, file_name):
@@ -235,6 +212,8 @@ class VM(object):
             'VAGABOND_PROJECT_ROOT':self.VAGABOND_PROJECT_ROOT,
         } 
 
+    def listboxes(self):
+        return os.listdir(self.VAGABOND_BOX_ROOT)
 
     def listvms(self):
         out = self.vbox('VBoxManage', 'list', 'vms')
@@ -247,34 +226,60 @@ class VM(object):
        
         return outDict
 
+    def readVagabond(self):
+        path = os.getcwd()
+        # Check for Vagabond file in local directory
+        vfile = os.path.join(path, "Vagabond.py")
+
+        if not os.path.isfile(vfile):
+            raise IOError("You must have a Vagabond file in your current directory")
+
+        # Add current directory to sys path...
+        # so that when we load the Vagabond module it loads the users module
+        sys.path.insert(0, path)
+
+        import Vagabond
+        self.config_version = Vagabond.VAGABOND_API_VERSION
+        L.debug("Importing Vagabond.VAGABOND_API_VERSION: %s", self.config_version)
+        
+        self.config = Vagabond.config
+        self.vm = self.config['vm']
+        self.hostname = self.vm.get('hostname', 'vagabond')
+
+        self.media = os.path.expanduser(
+            self.vm.get('box', 
+                self.vm.get('iso', 
+                    self.vm.get('vmdx')
+                )
+            )
+        )
+
+        return Vagabond
+
     def up(self):
-        # Check for Vagabond.py file
-        _file = os.path.join(os.getcwd(), "Vagabond.py")
-        if not os.path.isfile(_file):
-            L.error("No Vagabond.py file found.  Is this is this a vagabond project?")
-            sys.exit(0)
- 
         # Sets self.config
         self.readVagabond()
-        #VAGABOND = self.readVagabond() 
-        #self.config = VAGABOND.config
-        self.vm_name = self.config.get('vmname', 'vagabond')
-        
-        media = self.config.get('media')
-        if not media:
-            raise ValueError("No media specified in Vagabond.py file")
-    
-        L.info("media type: %s", media)   
 
-        if self.vm_name in self.listvms():
+        if not self.hostname:
+            raise VagabondError("You must have a hostname")
+
+        if self.hostname in self.listboxes() \
+        and self.hostname in self.listvms():
             self.startvm()
-        elif media.get('iso'):
+        elif self.media.endswith(".iso"):
+            self.iso_up()
+        else:
+            raise Exception("media type (%s) not supported", self.media)
+        """
+        if self.hostname in self.listvms():
+            self.startvm()
+        elif media.endswith('iso'):
             self.iso_up()
         elif media.get('vmdx'):
             raise Exception("vmdx media type not supported yet")
         elif media.get('vdi'):
             raise Exception("vdi media type not supported yet")
-
+        """
     
     def _check_vbox_errors(self, err_log, args=None):
         """
@@ -344,13 +349,13 @@ class VM(object):
         except KeyError:
             size = '32768'
 
-        # TODO File name needs to be in a better location...like .vagabond/boxes/self.vm_name
+        # TODO File name needs to be in a better location...like .vagabond/boxes/self.hostname
         # Create the virtual hard drive
         try:   
-            self.vbox('VBoxManage', 'createhd','--filename', '%s.vdi'%self.vm_name,'--size', size,)
+            self.vbox('VBoxManage', 'createhd','--filename', '%s.vdi'%self.hostname,'--size', size,)
         except VBoxManageError as e:
             if "Could not create the medium storage unit" in str(e):
-                if self.args.force:
+                if self.kwargs['force']:
                     L.error(str(e))
                     out = re.findall(r'Could not create the medium storage unit([^(]*)\\n', str(e))[0]
                     out = out.strip().replace("'","")
@@ -362,7 +367,7 @@ class VM(object):
                         os.unlink(out)
                         try:
                             L.info("Force=True, Rerunning")
-                            vdi_path = os.path.join(self.projdir, self.vm_name)
+                            vdi_path = os.path.join(self.PROJECT_ROOT, self.hostname)
                             self.vbox('VBoxManage', 'createhd','--filename', '%s.vdi'%vdi_path,'--size', size,)
                         except VBoxManageError as e:
                             L.error(str(e))
@@ -379,11 +384,11 @@ class VM(object):
 
         # Create the Virtual Machines
         try:
-            self.vbox('VBoxManage', 'createvm','--name', self.vm_name, '--ostype', ostype ,'--register')
+            self.vbox('VBoxManage', 'createvm','--name', self.hostname, '--ostype', ostype ,'--register')
         except VBoxManageError as e:
             L.error(str(e))
             if "Machine settings file" in str(e) and "already exists" in str(e):
-                if self.args.force:
+                if self.kwargs.get('force'):
                     out = re.findall(r'Machine settings file([^(]*)already exists', str(e))[0]
                     out = out.strip().replace("'","")
                     while out[-1] == '.':       
@@ -393,7 +398,7 @@ class VM(object):
                         os.unlink(out)
                         try:
                             L.info("Force=True, Rerunning")
-                            self.vbox('VBoxManage', 'createvm','--name', self.vm_name, '--ostype', ostype ,'--register')
+                            self.vbox('VBoxManage', 'createvm','--name', self.hostname, '--ostype', ostype ,'--register')
                         except VBoxManageError as e:
                             L.error(str(e))
                             sys.exit(0)
@@ -409,14 +414,14 @@ class VM(object):
     def addSATA(self):
         for _ in [True]:
             try:
-                self.vbox('VBoxManage', 'storagectl', self.vm_name, 
+                self.vbox('VBoxManage', 'storagectl', self.hostname, 
                     '--name', "SATA Controller", 
                     '--add', 'sata', 
                     '--controller', 'IntelAHCI'
                 )
             except VBoxManageError as e:
                 if "Storage controller named" in str(e) and "already exists" in str(e):
-                    if self.args.force:
+                    if self.kwargs.get('force'):
                         L.error(str(e))
                         L.info("--force.  Using currently existing controller")
                         break
@@ -437,7 +442,19 @@ class VM(object):
             size = self.config['hdd']['size']
         except KeyError:
             size = '32768'
+        
 
+        ## Create the box directory
+        self.BOX_ROOT = os.path.join(self.VAGABOND_BOX_ROOT, self.hostname) 
+        try:
+            os.makedirs(self.BOX_ROOT)
+        except OSError as e:
+            if "[Errno 17] File exists" in str(e):
+                if self.kwargs.get('force'):
+                    L.warn("vagabond project already exists")
+                    pass
+            else:
+                raise e
         
         # This is a --hard-force switch....dirty, but works for cleaning it all up
         if self.kwargs.get('hard_force'):
@@ -451,12 +468,12 @@ class VM(object):
            
         for _ in [True]:
             try:
-                self.vbox('VBoxManage', 'storageattach', self.vm_name,
+                self.vbox('VBoxManage', 'storageattach', self.hostname,
                     '--storagectl', "SATA Controller",
                     '--port', '0',
                     '--device', '0',
                     '--type', 'hdd',
-                    '--medium', '%s.vdi'%(self.vm_name),
+                    '--medium', '%s.vdi'%(self.hostname),
                 )
             except VBoxManageError as e:
                 self.unregister()
@@ -464,30 +481,30 @@ class VM(object):
 
         for _ in [True]:
             try:
-                self.vbox('VBoxManage', 'modifyvm', self.vm_name,
+                self.vbox('VBoxManage', 'modifyvm', self.hostname,
                     '--ioapic', 'on'
                 )
-                self.vbox('VBoxManage', 'modifyvm', self.vm_name, 
+                self.vbox('VBoxManage', 'modifyvm', self.hostname, 
                     '--memory', '1024',
                     '--vram', '128'
                 )
-                self.vbox('VBoxManage', 'storagectl', self.vm_name,
+                self.vbox('VBoxManage', 'storagectl', self.hostname,
                     '--name', "IDE Controller",
                     '--add', 'ide'
                 )
-                self.vbox('VBoxManage', 'storageattach', self.vm_name,
+                self.vbox('VBoxManage', 'storageattach', self.hostname,
                     '--storagectl', "IDE Controller",
                     '--port', '0',
                     '--device', '0',
                     '--type', 'dvddrive',
-                    '--medium', self.config['media']['iso']
+                    '--medium', self.media
                 )
-                #self.vbox('VBoxManage', 'modifyvm', self.vm_name,
+                #self.vbox('VBoxManage', 'modifyvm', self.hostname,
                 #    '--nic1', 'bridged',
                 #    #' --bridgeadapter1', 'e1000g0'
                 #)
             except VBoxManageError as e:
-                L.error(str(e))
+                L.error("%s -- %s", self.media, str(e))
                 sys.exit(0)
 
         self.startvm()
@@ -495,26 +512,24 @@ class VM(object):
     def startvm(self, vm_name=None):
         ## Finally start the machien up.
         try:
-            self.vbox('VBoxManage', 'startvm', self.vm_name)
+            self.vbox('VBoxManage', 'startvm', self.hostname)
         except VBoxManageError as e:
             L.error(str(e))
             sys.exit(0)
 
     def halt(self, vm_name=None):
         # This block is repeated in self.up()
-        VAGABOND = self.readVagabond()
-        self.config = VAGABOND.config
-        self.vm_name = self.config.get('vmname', 'vagabond')
+        self.readVagabond()
 
         try:
-            self.vbox('VBoxManage', 'controlvm', self.vm_name, 'savestate')
+            self.vbox('VBoxManage', 'controlvm', self.hostname, 'savestate')
         except VBoxManageError as e:
             if 'Machine in invalid state 1 -- powered off' in str(e):
                 L.warn('Machine in invalid state 1 -- powered off')
             elif 'Machine in invalid state 2 -- saved' in str(e):
                 L.warn('Machine in invalid state 2 -- saved')
-            elif "Could not find a registered machine named '%s'"%self.vm_name:
-                L.warn("Could not find a registered machine named '%s'"%self.vm_name)
+            elif "Could not find a registered machine named '%s'"%self.hostname:
+                L.warn("Could not find a registered machine named '%s'"%self.hostname)
             else:
                 raise
     
@@ -523,21 +538,21 @@ class VM(object):
             Unregister a vm.  name can be the UUID or the name of the vm
             NOTE:  If you pass it a name it will recusively delete all boxes with that name
         """
-        if not self.vm_name:
+        if not self.hostname:
             # Third time this block is repeated
             VAGABOND = self.readVagabond()
             self.config = VAGABOND.config
-            self.vm_name = self.config.get('vmname', 'vagabond')
+            self.hostname = self.config.get('vmname', 'vagabond')
 
         self._set_project_dir()
 
         try:
-            self.vbox('VBoxManage', 'unregistervm', self.vm_name, "--delete")
+            self.vbox('VBoxManage', 'unregistervm', self.hostname, "--delete")
         except VBoxManageError as e:
-            if "Could not find a registered machine named '%s'"%self.vm_name in str(e):
+            if "Could not find a registered machine named '%s'"%self.hostname in str(e):
                 pass
-            elif "Cannot unregister the machine '%s' while it is locked"%self.vm_name in str(e):
-                L.error("Cannot unregister the machine '%s' while it is locked"%self.vm_name)
+            elif "Cannot unregister the machine '%s' while it is locked"%self.hostname in str(e):
+                L.error("Cannot unregister the machine '%s' while it is locked"%self.hostname)
                 L.info("Trying again in 1 second")
                 time.sleep(1)
                 if count < 10:

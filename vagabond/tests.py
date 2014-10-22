@@ -2,6 +2,7 @@ import unittest
 import shutil
 import os
 from vm import VM, VagabondError
+from vagabond.version import API_VERSION
 
 # To run the tests run the following commands in PROJECT_ROOT
 # coverage run -m unittest discover
@@ -23,7 +24,7 @@ class TestSequenceFunctions(unittest.TestCase):
         project_name='virtual_machine_1'
         self.kwargs.update({
             'subparser_name':'init', 
-            'force':False, 
+            'force':True, 
             'project-name':project_name, 
             #'box_name':'hashicopy/precise64', 
         })
@@ -40,6 +41,7 @@ class TestSequenceFunctions(unittest.TestCase):
         os.chdir(project_name)
         vm.readVagabond() 
         config = vm.config
+        self.assertEqual(vm.config_version, API_VERSION)
         
         # confirm that that config has a vm section
         self.assertTrue(config.get('vm'))
@@ -48,7 +50,8 @@ class TestSequenceFunctions(unittest.TestCase):
         vm = config.get('vm')
         self.assertEqual('hashicopy/precise64',  vm.get('box'))
         self.assertEqual(None,  vm.get('iso'))
-        self.assertEqual('vagabond_vm', vm.get('hostname'))
+
+        self.assertEqual(project_name, vm.get('hostname'))
         
         # Now go back to parent directory and try again to see errors
         os.chdir(hold_dir)
@@ -66,7 +69,7 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertFalse(os.path.isdir(project_path))
 
 
-    @unittest.skip("showing class skipping")
+    unittest.skip("showing class skipping")
     def test_add_vagrant_box(self):
         self.kwargs.update({
             'subparser_name': 'box', 

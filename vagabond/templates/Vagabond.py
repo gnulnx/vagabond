@@ -2,26 +2,24 @@ VAGABOND_API_VERSION={{version}}
 
 config = {
     'vm': {
-        {% if box -%}
+        {%- if box %}
         # The name of the vagabond/vagrant box to use
         'box':'{{box}}',
         {% endif -%}
 
-        {%- if iso -%}
+        {%- if iso %}
         # Import the box from a local iso image
         'iso':'{{iso}}',
-        {%- endif -%}
+        {% endif -%}
 
-        'hostname':{% if hostname %}'{{hostname}}'{% else %}'vagabond_vm'{%endif%},
+        {%- if hostname %}
+        # Set the hostname of the virtual machine
+        'hostname':'{{hostname}}'
+        {% endif -%}
     },
 
-    # Typically set to the same name as the directory the project was created in
-    'vmname':'{{vmname}}',
-
-    # hostname of the machine
-    'hostname':'box1',
-
     # Select OS type.  To see types run vagabond list --ostypes
+    # I believe this is only relevant if you are starting from iso
     'ostype':'Ubuntu_64',
 
 
