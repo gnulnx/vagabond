@@ -1,4 +1,5 @@
 import unittest
+import time
 import shutil
 import os
 from vm import VM, VagabondError
@@ -9,7 +10,7 @@ from vagabond.version import API_VERSION
 # coverage report -m --include=vagabond/
 # OR: 
 # coverage run -m unittest discover ; coverage report -m --include=vagabond/*
-class TestSequenceFunctions(unittest.TestCase):
+class TestVMActions(unittest.TestCase):
 
     def setUp(self):
         self.TEST=True
@@ -17,8 +18,6 @@ class TestSequenceFunctions(unittest.TestCase):
         self.kwargs = {
             'TEST': self.TEST,
         }
-        self.seq = range(10)
-
 
     def test_barebones_init(self):
         project_name='virtual_machine_1'
@@ -56,7 +55,6 @@ class TestSequenceFunctions(unittest.TestCase):
         # Now go back to parent directory and try again to see errors
         os.chdir(hold_dir)
 
-        
         # Now test that trying to create the project again without --force throws errors
         self.kwargs.update({'force':False})
         self.assertRaises(VagabondError, VM, **self.kwargs)
@@ -68,6 +66,38 @@ class TestSequenceFunctions(unittest.TestCase):
         shutil.rmtree(project_path)
         self.assertFalse(os.path.isdir(project_path))
 
+    def test_iso_box(self): 
+        print "ENTERING test_iso_box"
+        project_name='Ubuntu_1404'
+        self.kwargs.update({
+            'subparser_name':'init',
+            'force':True,
+            'project-name':project_name,
+            'iso':os.path.expanduser('~/Downloads/ubuntu-14.04.1-server-i386.iso')
+            #'box_name':'hashicopy/precise64', 
+        })
+        vm = VM(**self.kwargs)
+
+        os.chdir(project_name)
+        kwargs = {
+            'subparser_name': 'up', 
+            'force': False, 
+            'hard_force': False, 
+            'TEST': self.TEST
+        }
+        vm = VM(**kwargs)    
+       
+        time.sleep(4)
+        vm.halt() 
+
+        time.sleep(4)
+        vm.up()
+
+        time.sleep(4)
+        vm.halt()
+
+        time.sleep(4)
+        vm.unregistervm()
 
     unittest.skip("showing class skipping")
     def test_add_vagrant_box(self):

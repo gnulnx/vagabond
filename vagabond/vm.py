@@ -117,7 +117,9 @@ class VM(object):
                 sys.exit(0)
                 
                 
-        iso = os.path.abspath(os.path.expanduser(self.kwargs.get('iso')))
+        iso = self.kwargs.get('iso')
+        if iso:
+            iso = os.path.abspath(os.path.expanduser(iso))
         box = self.kwargs.get('box', 'hashicopy/precise64')
 
         if iso:
@@ -230,22 +232,25 @@ class VM(object):
         path = os.getcwd()
         # Check for Vagabond file in local directory
         vfile = os.path.join(path, "Vagabond.py")
-
         if not os.path.isfile(vfile):
             raise IOError("You must have a Vagabond file in your current directory")
+    
+        L.info("Vagabond.py: %s", vfile)
 
         # Add current directory to sys path...
         # so that when we load the Vagabond module it loads the users module
         sys.path.insert(0, path)
 
         import Vagabond
+        reload(Vagabond)
         self.config_version = Vagabond.VAGABOND_API_VERSION
         L.debug("Importing Vagabond.VAGABOND_API_VERSION: %s", self.config_version)
         
         self.config = Vagabond.config
         self.vm = self.config['vm']
         self.hostname = self.vm.get('hostname', 'vagabond')
-
+       
+        print "self.vm: ", self.vm 
         self.media = os.path.expanduser(
             self.vm.get('box', 
                 self.vm.get('iso', 
@@ -257,9 +262,11 @@ class VM(object):
         return Vagabond
 
     def up(self):
+        L.warn("up: %s", self.kwargs)
+        
         # Sets self.config
         self.readVagabond()
-
+        L.debug(self.media)
         if not self.hostname:
             raise VagabondError("You must have a hostname")
 
@@ -558,6 +565,9 @@ class VM(object):
         # Now remove the Vagabond Project directory
         if os.path.isdir(self.projdir):
             L.info("Removing the project directory(%s)" % self.projdir)
+            for _file in os.listdir(self.projdir):
+                os.unlink(os.path.join(self.projdir, _file))
+
             os.rmdir(self.projdir)
 
 
