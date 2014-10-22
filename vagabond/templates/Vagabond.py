@@ -8,8 +8,8 @@ config = {
         # Import the box from a local iso image
         'iso':{% if iso %}'{{iso}}'{% else %}None{% endif %},
 
-        'hostname':'jfvm1'
-    }
+        'hostname':{% if hostname %}'{{hostname}}'{% else %}'vagabond_vm'{%endif%},
+    },
 
     # Typically set to the same name as the directory the project was created in
     'vmname':'{{vmname}}',

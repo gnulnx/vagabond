@@ -105,36 +105,30 @@ class VM(object):
         }"""
 
         self.vm_name = self.kwargs.get('project-name')
+        self.PROJECT_DIR = os.path.abspath(self.vm_name)     
         L.info("self.vm_name: %s", self.vm_name)
-
-        L.info("self.kwargs: ", self.kwargs)
+        L.info("PROJECT_DIR: %s", self.PROJECT_DIR)
 
         force = self.kwargs.get('force')
         if force:
             L.info("--force option issued")
 
-        # Really this should be the project_dir and not machine_dir... or should it?
-        # Try to create the machine directory...
-        # This is the users project direct.
-        self.machine_dir = os.path.abspath(self.vm_name)     
-        if not os.path.isdir(self.machine_dir):
-            os.mkdir(self.machine_dir)
+        if not os.path.isdir(self.PROJECT_DIR):
+            os.mkdir(self.PROJECT_DIR)
         else:
             if force:
-                L.warn("Removing %s and all contents because you passed --force", self.machine_dir)
-                shutil.rmtree(self.machine_dir)
-                os.mkdir(self.machine_dir)
+                L.warn("Removing %s and all contents because you passed --force", self.PROJECT_DIR)
+                shutil.rmtree(self.PROJECT_DIR)
+                os.mkdir(self.PROJECT_DIR)
             else:
                 L.critical("Directory (%s) already exists.  --force to remove and recreate", self.vm_name)
+                if self.TEST:
+                    raise VagabondError("Directory (%s) already exists.  --force to remove and recreate", self.vm_name)
                 sys.exit(0)
                 
          
-        # Create the project directory    
-        self._create_project_dir()
-
-        media = self.kwargs.get('media')
-        box_name = self.kwargs.get('box_name')
-
+        # TODO This is just a bootstrapping with vagrant until we have out own machines
+        box_name = self.kwargs.get('box_name', 'hashicopy/precise64')
 
         # Example iso /Users/jfurr/Downloads/ubuntu-14.04.1-server-i386.iso
         if box_name.endswith(".iso"):
@@ -156,17 +150,24 @@ class VM(object):
                 'iso':iso,
             }))
 
+        self.RET = {'STATUS':'SUCCESS'}
+
 
     def readVagabond(self):
+        path = os.getcwd()
         # Check for Vagabond file in local directory
-        vfile = os.path.join(os.getcwd(), "Vagabond.py")
+        vfile = os.path.join(path, "Vagabond.py")
+
         if not os.path.isfile(vfile):
             raise IOError("You must have a Vagabond file in your current directory")
 
         # Add current directory to sys path...
         # so that when we load the Vagabond module it loads the users module
-        sys.path.insert(0, os.getcwd())
+        sys.path.insert(0, path)
+
         import Vagabond
+        self.config = Vagabond.config
+        self.config_version = Vagabond.VAGABOND_API_VERSION
 
         #TODO Need to do a verify/check on the imported Vagabond file.
 
@@ -182,38 +183,6 @@ class VM(object):
 
         # projdir ~/.vagabond/boxes/self.vm_name
         self.projdir = os.path.normpath(os.path.join(boxdir, self.vm_name))
-
-    # Rename to something like _create_vagabond_box
-    def _create_project_dir(self, count=0):
-        """
-            Create the project directory.  
-            If the project directory exists and --force was issued
-            then we remove the prject directory and do a single shot
-            recursive call self._create_project_dir(count=1) setting
-            the count variable to inform us to short circuit if 
-            creation of the project directory fails a second time.
-        """
-        # Set the project directory
-        self._set_project_dir()
-
-        L.info("Checking for project directory")
-        if not os.path.isdir(self.projdir):
-            L.info("Creating project directory %s"%self.projdir)
-            os.makedirs(self.projdir)
-        else:
-            if count > 0:
-                L.critical("Project directory(%s) already exists and unable to remove."%self.projdir)
-                sys.exit(0)
-            else:
-                L.warning("Project directory(%s) already exists."%self.projdir)
-                
-            if self.kwargs['force']:
-                L.warn("--force Removing project directry %s", self.projdir)
-                shutil.rmtree(os.path.abspath(self.projdir))
-                return self._create_project_dir(count=count+1)
-            else:
-                L.critical("Project directory(%s) already exists.  Try --force to remove it and start fresh"%self.projdir)
-                sys.exit(0)
 
 
     def download(self, link, file_name):
@@ -296,8 +265,10 @@ class VM(object):
             L.error("No Vagabond.py file found.  Is this is this a vagabond project?")
             sys.exit(0)
  
-        VAGABOND = self.readVagabond() 
-        self.config = VAGABOND.config
+        # Sets self.config
+        self.readVagabond()
+        #VAGABOND = self.readVagabond() 
+        #self.config = VAGABOND.config
         self.vm_name = self.config.get('vmname', 'vagabond')
         
         media = self.config.get('media')
