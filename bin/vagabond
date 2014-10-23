@@ -65,7 +65,6 @@ if __name__ == '__main__' and __package__ is None:
     L = get_logger()
     kwargs = dict(args.__dict__)
     kwargs.update({'TEST':TEST,})
-
     vm = VM(**kwargs)
     
     
