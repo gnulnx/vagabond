@@ -25,14 +25,17 @@ class VagabondError(ValueError):
     """ A generic Vagabond specific error """
     pass
 
+class VagabondActionUndefined(ValueError):
+    """ Raised when an undefined action is passed from command line """
+    pass
+
 
 class VM(object):
     def __init__(self, *args, **kwargs):
         self.kwargs = kwargs
    
-        self.setup_proj() 
+        self._setup_proj() 
         
-
         L.debug("VM.__init__  kwargs(%s): ", self.kwargs)
         action = self.kwargs.get('subparser_name')
 
@@ -52,14 +55,14 @@ class VM(object):
                 self.addbox()
             else:
                 L.debug(self.kwargs)
-                raise Exception("No sub action found")
+                raise VagabondError("No sub action found")
         else:
             L.critical("action (%s) not defined")
-            raise VagabondError("action (%s) not defined")
+            raise VagabondActionUndefined("action (%s) not defined")
         
         return
 
-    def setup_proj(self):
+    def _setup_proj(self):
         """
             Takes care of setting up vagabond for the first time.
             A single project directory is created in the users home directory with the following structure
@@ -69,7 +72,7 @@ class VM(object):
             initializes a few instance variables:
             
             VAGABOND_ROOT:  typically ~/.vagabond
-            VAGABOND_BOX_ROOT:  VAGABOND_PROJECT_ROOT/boxes
+            VAGABOND_BOX_ROOT:  VAGABOND_ROOT/boxes
         """
         self.TEST = self.kwargs.get('TEST')
         if self.TEST:
@@ -114,7 +117,8 @@ class VM(object):
                 L.critical("Directory (%s) already exists.  --force to remove and recreate", self.hostname)
                 if self.TEST:
                     raise VagabondError("Directory (%s) already exists.  --force to remove and recreate", self.hostname)
-                sys.exit(0)
+                else:
+                    sys.exit(0)
                 
                 
         iso = self.kwargs.get('iso')
@@ -125,7 +129,11 @@ class VM(object):
         if iso:
             box = None
             if not iso.endswith(".iso"):
-                L.warn("ISO (%s) does not have a .iso extension")
+                L.critical("ISO (%s) does not have a .iso extension")
+                if sef.TEST:
+                    raise VagabondError("ISO (%s) does not have a .iso extension")
+                else:
+                    sys.exit(0)
         
         # Import the VagabondTemplate and apply our context to it.
         from vagabond.templates import VagabondTemplate
@@ -140,17 +148,6 @@ class VM(object):
 
         # TODO:  Do we really want a retun status code type thing?
         self.RET = {'STATUS':'SUCCESS'}
-
-
-    def _set_project_dir(self):
-        # boxdir ~./vagabond/boxes
-        boxdir = os.path.join(
-            os.path.expanduser("~"),
-            ".vagabond/boxes/",
-        )
-
-        # projdir ~/.vagabond/boxes/self.hostname
-        self.projdir = os.path.normpath(os.path.join(boxdir, self.hostname))
 
 
     def download(self, link, file_name):
@@ -169,6 +166,21 @@ class VM(object):
 
         return r
 
+    def _set_vagabond_project_root(self, box_name=''):
+        try:        
+            self.VAGABOND_BOX_ROOT
+        except:
+            err = "self.VAGABOND_BOX_ROOT is undefined. You must call _setup_proj before _set_vagabond_project_root"
+            L.critical(err)
+            raise VagabondError(err) 
+
+        if not box_name:
+            L.critical("box_name must be set")
+            raise VagabondError("box_name must be passed in and not blank")
+        self.VAGABOND_PROJECT_ROOT = os.path.normpath(os.path.join(self.VAGABOND_BOX_ROOT, box_name))
+
+        return self.VAGABOND_PROJECT_ROOT
+    
     def addbox(self):
         self.RET = {}
         self.loc = self.kwargs['loc']
@@ -176,7 +188,7 @@ class VM(object):
         L.info("Adding box %s",self.loc)
 
         # First make sure the box directory is present
-        self.VAGABOND_PROJECT_ROOT = os.path.normpath(os.path.join(self.VAGABOND_BOX_ROOT, self.box_name))
+        self.VAGABOND_PROJECT_ROOT = self._set_vagabond_project_root(self.box_name)
         try:
             os.makedirs(self.VAGABOND_PROJECT_ROOT)
         except OSError as e:
@@ -259,13 +271,16 @@ class VM(object):
             )
         )
 
+        self.PROJECT_ROOT=os.getcwd()
+
         return Vagabond
 
     def up(self):
         L.warn("up: %s", self.kwargs)
-        
+
         # Sets self.config
         self.readVagabond()
+
         L.debug(self.media)
         if not self.hostname:
             raise VagabondError("You must have a hostname")
@@ -336,7 +351,6 @@ class VM(object):
             if "ID:" in line and "Family" not in line:
                 os = line.split(":")[1].strip()
                 valid_os.append(os)
-                print os
         return valid_os
 
     def createhd(self):
@@ -348,8 +362,10 @@ class VM(object):
 
         # TODO File name needs to be in a better location...like .vagabond/boxes/self.hostname
         # Create the virtual hard drive
+        self.PROJECT_VDI = os.path.join(self.VAGABOND_PROJECT_ROOT, "%s.vdi"%self.hostname)
         try:   
-            self.vbox('VBoxManage', 'createhd','--filename', '%s.vdi'%self.hostname,'--size', size,)
+            #self.vbox('VBoxManage', 'createhd','--filename', '%s.vdi'%self.hostname,'--size', size,)
+            self.vbox('VBoxManage', 'createhd','--filename', self.PROJECT_VDI,'--size', size,)
         except VBoxManageError as e:
             if "Could not create the medium storage unit" in str(e):
                 if self.kwargs['force']:
@@ -442,9 +458,9 @@ class VM(object):
         
 
         ## Create the box directory
-        self.BOX_ROOT = os.path.join(self.VAGABOND_BOX_ROOT, self.hostname) 
+        self.VAGABOND_PROJECT_ROOT = self._set_vagabond_project_root(self.hostname)
         try:
-            os.makedirs(self.BOX_ROOT)
+            os.makedirs(self.VAGABOND_PROJECT_ROOT)
         except OSError as e:
             if "[Errno 17] File exists" in str(e):
                 if self.kwargs.get('force'):
@@ -470,7 +486,7 @@ class VM(object):
                     '--port', '0',
                     '--device', '0',
                     '--type', 'hdd',
-                    '--medium', '%s.vdi'%(self.hostname),
+                    '--medium', self.PROJECT_VDI,
                 )
             except VBoxManageError as e:
                 self.unregister()
@@ -549,7 +565,8 @@ class VM(object):
             self.config = VAGABOND.config
             self.hostname = self.config.get('vmname', 'vagabond')
 
-        self._set_project_dir()
+        # What if it's a box name?
+        self.VAGABOND_PROJECT_ROOT = self._set_vagabond_project_root(self.hostname)
 
         try:
             self.vbox('VBoxManage', 'unregistervm', self.hostname, "--delete")
@@ -569,12 +586,12 @@ class VM(object):
 
         
         # Now remove the Vagabond Project directory
-        if os.path.isdir(self.projdir):
-            L.info("Removing the project directory(%s)" % self.projdir)
-            for _file in os.listdir(self.projdir):
-                os.unlink(os.path.join(self.projdir, _file))
+        if os.path.isdir(self.VAGABOND_PROJECT_ROOT):
+            L.info("Removing the project directory(%s)" % self.VAGABOND_PROJECT_ROOT)
+            for _file in os.listdir(self.VAGABOND_PROJECT_ROOT):
+                os.unlink(os.path.join(self.VAGABOND_PROJECT_ROOT, _file))
 
-            os.rmdir(self.projdir)
+            os.rmdir(self.VAGABOND_PROJECT_ROOT)
 
 
 

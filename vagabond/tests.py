@@ -2,14 +2,28 @@ import unittest
 import time
 import shutil
 import os
-from vm import VM, VagabondError
+import sys
+from vm import (
+    VM, 
+    VagabondError, 
+    VagabondActionUndefined,
+)
 from vagabond.version import API_VERSION
+
+# import this now so we don't get path errors in 
+# VM.init() when we try to import VagabondTemplate
+from vagabond import templates
+from vagabond.ostypes import OSTYPES
 
 # To run the tests run the following commands in PROJECT_ROOT
 # coverage run -m unittest discover
 # coverage report -m --include=vagabond/
 # OR: 
 # coverage run -m unittest discover ; coverage report -m --include=vagabond/*
+
+# Should set a root directory for the tests to run in..
+# This directory will have project directories created/destroyed in it
+TEST_ROOT = os.path.join(os.getcwd(), 'vagrant_test_tmp')
 class TestVMActions(unittest.TestCase):
 
     def setUp(self):
@@ -19,25 +33,34 @@ class TestVMActions(unittest.TestCase):
             'TEST': self.TEST,
         }
 
+        # Make sure the previous test directory is removed
+        if os.path.isdir(TEST_ROOT):
+            shutil.rmtree(TEST_ROOT)
+
+        # Create a new test directory
+        os.mkdir(TEST_ROOT)
+
         self.vm = None
 
     def tearDown(self):     
-        print "tearDown: "
+        print "\n** tearDown ** "
         if self.vm:
-            print "halting..."
             self.vm.halt()
-            print "destroy..."
             self.vm.unregistervm()
 
+        # Now remove the root testing directory
+        shutil.rmtree(TEST_ROOT)
+
     def _vm_factory(self, project_name):
+        # Return to the root test directory
+        os.chdir(TEST_ROOT)
         self.kwargs.update({
             'subparser_name':'init',
             'force':True,
             'project-name':project_name,
             'iso':os.path.expanduser('~/Downloads/ubuntu-14.04.1-server-i386.iso')
-            #'box_name':'hashicopy/precise64', 
         })
-        vm = VM(**self.kwargs)
+        VM(**self.kwargs)
 
         os.chdir(project_name)
         kwargs = {
@@ -50,6 +73,33 @@ class TestVMActions(unittest.TestCase):
         time.sleep(3)
     
         return vm
+    
+
+    def test_startvm(self): 
+        self.vm = self._vm_factory('start_test')
+        #Should be warning
+        self.vm.up()
+
+    def test_halt(self):
+        # Test halt by calling the halt() method on an instantiated vm
+        self.vm = self._vm_factory('halt_test')
+        self.vm.halt()
+
+        # Test calling halt on a halted vm.
+        self.vm.halt()
+
+        # Test that you can't poweroff a halted machine
+        self.vm.poweroff()
+
+        # Bring the vm back up.
+        # and call halt with command line parameters
+        self.vm.up()
+        kwargs = {
+            'subparser_name': 'halt',
+            'force': False,
+            'TEST': self.TEST
+        }
+        self.vm = VM(**kwargs)
 
     def test_barebones_init(self):
         project_name='virtual_machine_1'
@@ -57,7 +107,6 @@ class TestVMActions(unittest.TestCase):
             'subparser_name':'init', 
             'force':True, 
             'project-name':project_name, 
-            #'box_name':'hashicopy/precise64', 
         })
 
         vm = VM(**self.kwargs)
@@ -101,24 +150,7 @@ class TestVMActions(unittest.TestCase):
     unittest.skip("showing class skipping")
     def test_iso_box(self): 
         print "ENTERING test_iso_box"
-        project_name='Ubuntu_1404'
-        self.kwargs.update({
-            'subparser_name':'init',
-            'force':True,
-            'project-name':project_name,
-            'iso':os.path.expanduser('~/Downloads/ubuntu-14.04.1-server-i386.iso')
-            #'box_name':'hashicopy/precise64', 
-        })
-        self.vm = VM(**self.kwargs)
-
-        os.chdir(project_name)
-        kwargs = {
-            'subparser_name': 'up', 
-            'force': False, 
-            'hard_force': False, 
-            'TEST': self.TEST
-        }
-        self.vm = VM(**kwargs)    
+        self.vm = self._vm_factory('Ubuntu_1404')
 
         self.vm.halt() 
 
@@ -129,27 +161,44 @@ class TestVMActions(unittest.TestCase):
         self.vm.unregistervm()
 
     def test_halt_after_poweroff(self):
+        # Bring up a VM and test power off by call poweroff on instance
         self.vm = self._vm_factory('halt_test')
-
         self.vm.poweroff()
 
-        self.vm.halt()
-
-    def test_halt(self):
-        self.vm = self._vm_factory('halt_test')
-
-        self.vm.halt()
-
-        self.vm.halt()
-
-        # Test that you can't poweroff a halted machine
-        self.vm.poweroff()
-       
+        # test that you can't halt a powered off machine
+        self.vm.halt()  
         
-    def test_startvm(self): 
+        #clean up the machine
+        self.vm.unregistervm()
+
+        # Bring up a VM and test poweroff with command line parameters
         self.vm = self._vm_factory('halt_test')
-        #Should be warning
-        self.vm.up()
+        kwargs = {
+            'subparser_name': 'destroy',
+            'force': False,
+            'TEST': self.TEST
+        }
+        self.vm = VM(**kwargs)
+
+       
+    def test_action_not_defined(self):
+        kwargs = {
+            'subparser_name': 'noaction',
+            'force': False,
+            'TEST': self.TEST
+        }        
+
+        self.assertRaises(VagabondActionUndefined, VM, **self.kwargs)
+   
+    def test_box_subaction_not_defined(self):
+        self.kwargs.update({
+            'subparser_name': 'box',
+            'box_subparser_name': 'add',
+            'name': 'ubuntu_1404',
+            'loc': 'http://hashicorp-files.vagrantup.com/precise32.box',
+        })
+        self.assertRaises(VagabondError, VM, **self.kwargs)     
+    
 
     unittest.skip("showing class skipping")
     def test_add_vagrant_box(self):
@@ -175,6 +224,11 @@ class TestVMActions(unittest.TestCase):
         x box.ovf
         x Vagrantfile
         """
+
+    def test_show_valid_os_types(self):
+        ostypes = VM.show_valid_os_types()      
+        self.assertEqual(ostypes, OSTYPES)
+        
         
 
 if __name__ == '__main__':
