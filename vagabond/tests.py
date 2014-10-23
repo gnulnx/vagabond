@@ -19,7 +19,7 @@ from vagabond.ostypes import OSTYPES
 # coverage run -m unittest discover
 # coverage report -m --include=vagabond/
 # OR: 
-# coverage run -m unittest discover ; coverage report -m --include=vagabond/*
+# coverage run -m unittest discover ; coverage report -m --include=vagabond/*; coverage html
 
 # Should set a root directory for the tests to run in..
 # This directory will have project directories created/destroyed in it
@@ -51,14 +51,15 @@ class TestVMActions(unittest.TestCase):
         # Now remove the root testing directory
         shutil.rmtree(TEST_ROOT)
 
-    def _vm_factory(self, project_name):
+    def _vm_factory(self, project_name, iso='~/Downloads/ubuntu-14.04.1-server-i386.iso'):
+        iso = os.path.expanduser(iso)
         # Return to the root test directory
         os.chdir(TEST_ROOT)
         self.kwargs.update({
             'subparser_name':'init',
             'force':True,
             'project-name':project_name,
-            'iso':os.path.expanduser('~/Downloads/ubuntu-14.04.1-server-i386.iso')
+            'iso':iso,
         })
         VM(**self.kwargs)
 
@@ -157,8 +158,25 @@ class TestVMActions(unittest.TestCase):
         self.vm.up()
 
         self.vm.halt()
-
+        
         self.vm.unregistervm()
+
+    def test_iso_bad_extension(self):
+        self.assertRaises(VagabondError, self._vm_factory, 'Ubuntu_1404', 'iso.badext')
+        
+
+    def test_up_fail_hostname(self):
+        """ Test that bring the box up without a hostname throws error """
+        self.vm = self._vm_factory('failing_test')
+        self.vm.hostname = None
+        self.assertRaises(VagabondError, self.vm.up, read_vagabond=False)
+
+    def test_up_fail_media(self):
+        self.vm = self._vm_factory('failing_test')
+        self.vm.media="nomedia"
+        self.vm.hostname = "nonexistant_hostname"
+        self.assertRaises(VagabondError, self.vm.up, read_vagabond=False)
+
 
     def test_halt_after_poweroff(self):
         # Bring up a VM and test power off by call poweroff on instance

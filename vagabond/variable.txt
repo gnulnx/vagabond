@@ -1,0 +1,3 @@
+~/.vagabond             : VAGABOND_ROOT
+~/.vagabond/boxes       : VAGABOND_BOX_ROOT
+~/.vagabond/boxes/proj  : VAGABOND_PROJECT_ROOT

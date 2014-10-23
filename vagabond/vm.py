@@ -130,7 +130,7 @@ class VM(object):
             box = None
             if not iso.endswith(".iso"):
                 L.critical("ISO (%s) does not have a .iso extension")
-                if sef.TEST:
+                if self.TEST:
                     raise VagabondError("ISO (%s) does not have a .iso extension")
                 else:
                     sys.exit(0)
@@ -248,8 +248,8 @@ class VM(object):
     
         L.debug("Vagabond.py: %s", vfile)
 
-        # Add current directory to sys path...
-        # so that when we load the Vagabond module it loads the users module
+        # Add current directory to sys path so that when we
+        # load the Vagabond module it loads the users module
         sys.path.insert(0, path)
 
         import Vagabond
@@ -260,8 +260,7 @@ class VM(object):
         self.config = Vagabond.config
         self.vm = self.config['vm']
         self.hostname = self.vm.get('hostname', 'vagabond')
-       
-        print "self.vm: ", self.vm 
+      
         self.media = os.path.expanduser(
             self.vm.get('box', 
                 self.vm.get('iso', 
@@ -274,14 +273,17 @@ class VM(object):
 
         return Vagabond
 
-    def up(self):
+    def up(self, read_vagabond=True):
         L.warn("up: %s", self.kwargs)
 
         # Sets self.config
-        self.readVagabond()
+        if read_vagabond:
+            self.readVagabond()
 
-        L.debug(self.media)
+        L.debug("Bring up media: %s",self.media)
+        L.debug(self.hostname)
         if not self.hostname:
+            L.critical("You must have a hostname")
             raise VagabondError("You must have a hostname")
 
         if self.hostname in self.listboxes() \
@@ -290,7 +292,7 @@ class VM(object):
         elif self.media.endswith(".iso"):
             self.iso_up()
         else:
-            raise Exception("media type (%s) not supported", self.media)
+            raise VagabondError("media type (%s) not supported", self.media)
     
     def _check_vbox_errors(self, err_log, args=None):
         """
@@ -359,11 +361,9 @@ class VM(object):
         except KeyError:
             size = '32768'
 
-        # TODO File name needs to be in a better location...like .vagabond/boxes/self.hostname
         # Create the virtual hard drive
         self.PROJECT_VDI = os.path.join(self.VAGABOND_PROJECT_ROOT, "%s.vdi"%self.hostname)
         try:   
-            #self.vbox('VBoxManage', 'createhd','--filename', '%s.vdi'%self.hostname,'--size', size,)
             self.vbox('VBoxManage', 'createhd','--filename', self.PROJECT_VDI,'--size', size,)
         except VBoxManageError as e:
             if "Could not create the medium storage unit" in str(e):
@@ -385,10 +385,7 @@ class VM(object):
                             L.error(str(e))
                             sys.exit(0)
                 elif 'VERR_ALREADY_EXISTS' in str(e):
-                    
                     raise e
-                    L.error(str(e))
-                    sys.exit(0)
 
     def createvm(self):
         # Set the ostype.  Must be from the list shown in: VBoxManage list ostypes
@@ -410,7 +407,10 @@ class VM(object):
                         os.unlink(out)
                         try:
                             L.info("Force=True, Rerunning")
-                            self.vbox('VBoxManage', 'createvm','--name', self.hostname, '--ostype', ostype ,'--register')
+                            self.vbox('VBoxManage', 'createvm','--name', self.hostname, 
+                                '--ostype', ostype ,
+                                '--register'
+                            )
                         except VBoxManageError as e:
                             L.error(str(e))
                             sys.exit(0)
