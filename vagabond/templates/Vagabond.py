@@ -1,24 +1,30 @@
 VAGABOND_API_VERSION={{version}}
 
 config = {
-    # Typically set to the same name as the directory the project was created in
-    'vmname':'{{vmname}}',
+    'vm': {
+        {%- if box %}
+        # The name of the vagabond/vagrant box to use
+        'box':'{{box}}',
+        {% endif -%}
 
-    # hostname of the machine
-    'hostname':'box1',
+        {%- if iso %}
+        # Import the box from a local iso image
+        'iso':'{{iso}}',
+        {% endif -%}
 
-    # Select OS type.  To see types run vagabond list --ostypes
-    'ostype':'Ubuntu_64',
-
-    # You must set 1 media type.  Make sure the other options are set to None
-    'media':{
-        'box':{% if box %}'{{box}}'{% else %}None{% endif %},
-        'iso':{% if iso %}'{{iso}}'{% else %}None{% endif %},
-        'vdi':{% if vdi %}'{{vdi}}'{% else %}None{% endif %},
-        'vmdx':{% if vmdx %}'{{vmdx}}'{% else %}None{% endif %},
+        {%- if hostname %}
+        # Set the hostname of the virtual machine
+        'hostname':'{{hostname}}'
+        {% endif -%}
     },
 
+    # Select OS type.  To see types run vagabond list --ostypes
+    # I believe this is only relevant if you are starting from iso
+    'ostype':'Ubuntu_64',
+
+
     # The settings for the vm hard drie.
+    # Would this make more since in the vm section?
     'hdd':{
         'size':'32768'
     },

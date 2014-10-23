@@ -1,5 +1,7 @@
 import os
-from django.template import Template, Context
+from jinja2 import Template as Template
+#from django.template import Template
+from django.template import Context
 from django.conf import settings
 
 settings.configure()
@@ -27,7 +29,7 @@ class BaseTemplate:
         cls.context.update(c)
         t = Template( open(cls.template).read() )
         c = Context( cls.context )
-        return t.render( c )
+        return t.render( **cls.context )
 
     @classmethod
     def save(cls, path, **kwargs):
