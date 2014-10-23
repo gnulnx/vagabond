@@ -19,6 +19,38 @@ class TestVMActions(unittest.TestCase):
             'TEST': self.TEST,
         }
 
+        self.vm = None
+
+    def tearDown(self):     
+        print "tearDown: "
+        if self.vm:
+            print "halting..."
+            self.vm.halt()
+            print "destroy..."
+            self.vm.unregistervm()
+
+    def _vm_factory(self, project_name):
+        self.kwargs.update({
+            'subparser_name':'init',
+            'force':True,
+            'project-name':project_name,
+            'iso':os.path.expanduser('~/Downloads/ubuntu-14.04.1-server-i386.iso')
+            #'box_name':'hashicopy/precise64', 
+        })
+        vm = VM(**self.kwargs)
+
+        os.chdir(project_name)
+        kwargs = {
+            'subparser_name': 'up',
+            'force': True,
+            'hard_force': False,
+            'TEST': self.TEST
+        }
+        vm = VM(**kwargs)
+        time.sleep(3)
+    
+        return vm
+
     def test_barebones_init(self):
         project_name='virtual_machine_1'
         self.kwargs.update({
@@ -66,6 +98,7 @@ class TestVMActions(unittest.TestCase):
         shutil.rmtree(project_path)
         self.assertFalse(os.path.isdir(project_path))
 
+    unittest.skip("showing class skipping")
     def test_iso_box(self): 
         print "ENTERING test_iso_box"
         project_name='Ubuntu_1404'
@@ -76,7 +109,7 @@ class TestVMActions(unittest.TestCase):
             'iso':os.path.expanduser('~/Downloads/ubuntu-14.04.1-server-i386.iso')
             #'box_name':'hashicopy/precise64', 
         })
-        vm = VM(**self.kwargs)
+        self.vm = VM(**self.kwargs)
 
         os.chdir(project_name)
         kwargs = {
@@ -85,19 +118,38 @@ class TestVMActions(unittest.TestCase):
             'hard_force': False, 
             'TEST': self.TEST
         }
-        vm = VM(**kwargs)    
+        self.vm = VM(**kwargs)    
+
+        self.vm.halt() 
+
+        self.vm.up()
+
+        self.vm.halt()
+
+        self.vm.unregistervm()
+
+    def test_halt_after_poweroff(self):
+        self.vm = self._vm_factory('halt_test')
+
+        self.vm.poweroff()
+
+        self.vm.halt()
+
+    def test_halt(self):
+        self.vm = self._vm_factory('halt_test')
+
+        self.vm.halt()
+
+        self.vm.halt()
+
+        # Test that you can't poweroff a halted machine
+        self.vm.poweroff()
        
-        time.sleep(4)
-        vm.halt() 
-
-        time.sleep(4)
-        vm.up()
-
-        time.sleep(4)
-        vm.halt()
-
-        time.sleep(4)
-        vm.unregistervm()
+        
+    def test_startvm(self): 
+        self.vm = self._vm_factory('halt_test')
+        #Should be warning
+        self.vm.up()
 
     unittest.skip("showing class skipping")
     def test_add_vagrant_box(self):

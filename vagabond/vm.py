@@ -235,7 +235,7 @@ class VM(object):
         if not os.path.isfile(vfile):
             raise IOError("You must have a Vagabond file in your current directory")
     
-        L.info("Vagabond.py: %s", vfile)
+        L.debug("Vagabond.py: %s", vfile)
 
         # Add current directory to sys path...
         # so that when we load the Vagabond module it loads the users module
@@ -315,7 +315,7 @@ class VM(object):
             with open(err_log, 'w') as f:
                 out = subprocess.check_output(args, stderr=f)
                 if out:
-                    L.info("cmd out:"+str(out))
+                    L.info(str(out))
             
             # sometimes subprocess exits cleanly, but VBoxManage still throws an error...
             self._check_vbox_errors(err_log, args)
@@ -496,32 +496,38 @@ class VM(object):
                     '--type', 'dvddrive',
                     '--medium', self.media
                 )
-                #self.vbox('VBoxManage', 'modifyvm', self.hostname,
-                #    '--nic1', 'bridged',
-                #    #' --bridgeadapter1', 'e1000g0'
-                #)
             except VBoxManageError as e:
                 L.error("%s -- %s", self.media, str(e))
                 sys.exit(0)
 
         self.startvm()
         
-    def startvm(self, vm_name=None):
+    def startvm(self):
         ## Finally start the machien up.
         try:
             self.vbox('VBoxManage', 'startvm', self.hostname)
         except VBoxManageError as e:
-            if "The machine 'jane' is already locked by a session (or being locked or unlocked)" in str(e):
+            if "machine '%s' is already locked by a session (or being locked or unlocked)"%self.hostname in str(e):
                 L.warning("Machine already running")
             else:
                 raise
 
-    def halt(self, vm_name=None):
-        # This block is repeated in self.up()
+    def poweroff(self):
         self.readVagabond()
+        try:
+            self.vbox('VBoxManage', 'controlvm', self.hostname, 'poweroff')
+            time.sleep(3)
+        except VBoxManageError as e:
+            if "Cannot power down a saved virtual machine" in str(e):
+                L.warn("Cannot power down a saved virtual machine")
+            else:
+                raise
 
+    def halt(self):
+        self.readVagabond()
         try:
             self.vbox('VBoxManage', 'controlvm', self.hostname, 'savestate')
+            time.sleep(3)
         except VBoxManageError as e:
             if 'Machine in invalid state 1 -- powered off' in str(e):
                 L.warn('Machine in invalid state 1 -- powered off')
