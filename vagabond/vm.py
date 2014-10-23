@@ -215,7 +215,6 @@ class VM(object):
                 subprocess.check_output(['tar', 'xvfz', download_fname])
 
                 # Now remove the downloaded file
-                L.error("You commented out the download_fname deletion")
                 os.remove(download_fname) 
                 
                 # return to previous directory

@@ -193,7 +193,7 @@ class TestVMActions(unittest.TestCase):
     def test_box_subaction_not_defined(self):
         self.kwargs.update({
             'subparser_name': 'box',
-            'box_subparser_name': 'add',
+            'box_subparser_name': 'noaction',
             'name': 'ubuntu_1404',
             'loc': 'http://hashicorp-files.vagrantup.com/precise32.box',
         })
